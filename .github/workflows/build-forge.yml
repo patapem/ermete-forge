@@ -93,6 +93,9 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           dnf install -y akmods akmod-nvidia gcc gcc-c++ make elfutils-libelf-devel openssl-devel rpm-build rpmdevtools
+          cp scripts/akmods /usr/sbin/akmods
+          cp scripts/kmodtool /usr/bin/kmodtool
+          chmod +x /usr/sbin/akmods /usr/bin/kmodtool
           mkdir -p /etc/pki/akmods/certs /etc/pki/akmods/private
           cp certs/MOK.der /etc/pki/akmods/certs/public_key.der
           cp certs/MOK.priv /etc/pki/akmods/private/private_key.priv
