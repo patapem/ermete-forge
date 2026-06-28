@@ -12,13 +12,19 @@ mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 echo ">>> Preparing Chimera Kernel Bedrock..."
 
 # 1. Recupero base CachyOS
-echo ">>> Fetching CachyOS kernel tree..."
-rm -rf /tmp/kernel-cachyos
-git clone --depth 1 https://github.com/CachyOS/linux-cachyos.git /tmp/kernel-cachyos
+echo ">>> Fetching CachyOS kernel tree from COPR SRPM..."
+curl -Lo /etc/yum.repos.d/bieszczaders-kernel-cachyos.repo "https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos/repo/fedora-${FEDORA_VERSION:-43}/bieszczaders-kernel-cachyos-fedora-${FEDORA_VERSION:-43}.repo"
+
+# DNF setup and download
+dnf install -y dnf-plugins-core
+dnf download --source kernel-cachyos
 
 echo ">>> Populating rpmbuild directories..."
-cp -r /tmp/kernel-cachyos/* ~/rpmbuild/SOURCES/
-cp /tmp/kernel-cachyos/*.spec ~/rpmbuild/SPECS/kernel-cachyos.spec
+rpm -ivh kernel-cachyos*.src.rpm
+rm -f kernel-cachyos*.src.rpm
+
+# Assicura che ci sia sempre un kernel-cachyos.spec per il workflow
+mv ~/rpmbuild/SPECS/*.spec ~/rpmbuild/SPECS/kernel-cachyos.spec
 
 # 2. Iniezione patch ClearLinux (Es. Ottimizzazioni di memoria e boot)
 echo ">>> Injecting Clear Linux patches..."
