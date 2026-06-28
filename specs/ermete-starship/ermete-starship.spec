@@ -19,6 +19,9 @@ Compiled natively in Ermete Forge with extreme optimizations.
 %prep
 %autosetup -n starship-%{version}
 
+# Disable GCC LTO as it conflicts with Rust LLVM LTO and mold
+%define _lto_cflags %{nil}
+
 %build
 # The global rpmmacros will inject -C target-cpu=x86-64-v3 and mold linker
 cargo build --release --locked

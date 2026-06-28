@@ -55,7 +55,7 @@ jobs:
     name: 🖥️ Build AGS (Gentoo/ClearLinux Extreme)
     runs-on: ubuntu-latest
     container:
-      image: registry.fedoraproject.org/fedora:43
+      image: registry.fedoraproject.org/fedora:41
     steps:
       - uses: actions/checkout@v4
       - run: dnf install -y rpm-build rpmdevtools dnf5 dnf-plugins-core clang mimalloc-devel
@@ -83,7 +83,7 @@ jobs:
       image: registry.fedoraproject.org/fedora:43
     steps:
       - uses: actions/checkout@v4
-      - run: dnf install -y rpm-build rpmdevtools gcc gcc-c++ cargo rust cmake mold tar xz curl
+      - run: dnf install -y rpm-build rpmdevtools gcc gcc-c++ cargo rust cmake mold tar xz curl pkgconf-pkg-config zlib-devel openssl-devel
       - run: cp config/rpmmacros ~/.rpmmacros
       - run: rpmdev-setuptree
       - uses: actions/cache@v4
