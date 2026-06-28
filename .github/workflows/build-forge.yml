@@ -103,7 +103,7 @@ jobs:
       contents: read
       packages: write
     container:
-      image: registry.fedoraproject.org/fedora:41
+      image: registry.fedoraproject.org/fedora:40
       options: --privileged
     steps:
       - uses: actions/checkout@v4

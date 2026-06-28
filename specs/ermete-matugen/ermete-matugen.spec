@@ -4,7 +4,7 @@ Release:        1%{?dist}
 Summary:        Material Design 3 color generation tool
 License:        GPLv3
 URL:            https://github.com/InioX/matugen
-Source0:        https://github.com/InioX/matugen/archive/refs/tags/matugen-v%{version}.tar.gz
+Source0:        https://github.com/InioX/matugen/archive/refs/tags/v%{version}.tar.gz
 
 BuildRequires:  cargo
 BuildRequires:  rust
@@ -21,6 +21,9 @@ Compiled natively in Ermete Forge with extreme optimizations.
 %define _lto_cflags %{nil}
 
 %build
+export CFLAGS="$(echo $CFLAGS | sed 's/-flto=auto//g')"
+export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-flto=auto//g')"
+export LDFLAGS="$(echo $LDFLAGS | sed 's/-flto=auto//g')"
 cargo build --release --locked
 
 %install
