@@ -13,32 +13,26 @@ echo ">>> Preparing Chimera Kernel Bedrock..."
 
 # 1. Recupero base CachyOS
 echo ">>> Fetching CachyOS kernel tree..."
-git clone --depth 1 https://github.com/CachyOS/kernel-cachyos.git /tmp/kernel-cachyos || true
+rm -rf /tmp/kernel-cachyos
+git clone --depth 1 https://github.com/CachyOS/kernel-cachyos.git /tmp/kernel-cachyos
+
+echo ">>> Populating rpmbuild directories..."
+cp -r /tmp/kernel-cachyos/* ~/rpmbuild/SOURCES/
+cp /tmp/kernel-cachyos/kernel-cachyos.spec ~/rpmbuild/SPECS/
 
 # 2. Iniezione patch ClearLinux (Es. Ottimizzazioni di memoria e boot)
 echo ">>> Injecting Clear Linux patches..."
-# wget https://github.com/clearlinux-pkgs/linux/raw/main/...
-# patch -p1 < clearlinux.patch
+# (Here we would fetch clear linux specific patches if needed)
 
 # 3. Configurazione Compilatore (Gentoo Style)
-echo ">>> Setting up Gentoo-style Clang/LTO parameters..."
-export CC=clang
-export LD=ld.lld
-export AR=llvm-ar
-export NM=llvm-nm
-export STRIP=llvm-strip
-export OBJCOPY=llvm-objcopy
-export OBJDUMP=llvm-objdump
-export READELF=llvm-readelf
-export HOSTCC=clang
-export HOSTCXX=clang++
-export HOSTAR=llvm-ar
-export HOSTLD=ld.lld
+echo ">>> Setting up Gentoo-style Clang/LTO parameters in the spec file..."
+sed -i 's/%define buildid .*/%define buildid .chimera/' ~/rpmbuild/SPECS/kernel-cachyos.spec
 
-export KCFLAGS="-O3 -march=x86-64-v3 -flto=thin"
-export KCPPFLAGS="-O3 -march=x86-64-v3 -flto=thin"
-
-# 4. Preparazione SPEC file
-# cp /tmp/kernel-cachyos/kernel-cachyos.spec ~/rpmbuild/SPECS/kernel.spec
+# Append Clang and LTO flags for Extreme Integration
+cat << 'EOF' >> ~/rpmbuild/SPECS/kernel-cachyos.spec
+%global toolchain clang
+%global _lto_cflags -flto=thin
+%global optflags %{optflags} -O3 -march=x86-64-v3
+EOF
 
 echo ">>> Chimera Kernel preparation complete."

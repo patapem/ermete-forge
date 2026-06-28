@@ -36,10 +36,9 @@ jobs:
       - name: Build Kernel RPMs
         run: |
           echo "Compiling the Chimera Kernel... (This will take time)"
-          # rpmbuild -ba ~/rpmbuild/SPECS/kernel.spec --target x86_64
-          # Temporary dummy artifact generation for pipeline testing
-          mkdir -p ~/rpmbuild/RPMS/x86_64
-          echo "kernel-chimera" > ~/rpmbuild/RPMS/x86_64/kernel-chimera-dummy.rpm
+          spectool -g -R ~/rpmbuild/SPECS/kernel-cachyos.spec
+          dnf builddep -y ~/rpmbuild/SPECS/kernel-cachyos.spec || true
+          rpmbuild -ba ~/rpmbuild/SPECS/kernel-cachyos.spec --target x86_64
           
       - name: Publish Micro-Container OCI
         run: |
