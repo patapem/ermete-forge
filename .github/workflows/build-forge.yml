@@ -296,3 +296,36 @@ jobs:
           IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-bibata:latest" | tr '[:upper:]' '[:lower:]')
           buildah commit $ctr $IMAGE_LOWER
           buildah push $IMAGE_LOWER
+
+  build-ananicy:
+    name: ⚡ Build Ananicy CPP
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: registry.fedoraproject.org/fedora:43
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch Ananicy RPMs from COPR
+        run: |
+          dnf install -y dnf-plugins-core
+          dnf copr enable -y bieszczaders/kernel-cachyos-addons
+          mkdir -p /github/home/RPMS
+          cd /github/home/RPMS
+          PACKAGES=$(dnf repoquery --repo=copr:copr.fedorainfracloud.org:bieszczaders:kernel-cachyos-addons -q --arch=x86_64,noarch | grep -E '^ananicy-cpp' | grep -v 'debug' | grep -v '\.src$')
+          dnf download $PACKAGES
+          echo "Downloaded packages:"
+          ls -lh
+      - name: Publish Micro-Container OCI
+        run: |
+          dnf install -y buildah
+          export STORAGE_DRIVER=vfs
+          export BUILDAH_ISOLATION=chroot
+          buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+          ctr=$(buildah from scratch)
+          buildah copy $ctr /github/home/RPMS/*.rpm / || true
+          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-ananicy:latest" | tr '[:upper:]' '[:lower:]')
+          buildah commit $ctr $IMAGE_LOWER
+          buildah push $IMAGE_LOWER
