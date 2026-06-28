@@ -1,0 +1,35 @@
+Name:           ermete-starship
+Version:        1.22.1
+Release:        1%{?dist}
+Summary:        The minimal, blazing-fast, and infinitely customizable prompt for any shell!
+License:        ISC
+URL:            https://starship.rs
+Source0:        https://github.com/starship/starship/archive/refs/tags/v%{version}.tar.gz
+
+BuildRequires:  cargo
+BuildRequires:  rust
+BuildRequires:  cmake
+BuildRequires:  mold
+BuildRequires:  openssl-devel
+
+%description
+Starship is the minimal, blazing-fast, and infinitely customizable prompt for any shell!
+Compiled natively in Ermete Forge with extreme optimizations.
+
+%prep
+%autosetup -n starship-%{version}
+
+%build
+# The global rpmmacros will inject -C target-cpu=x86-64-v3 and mold linker
+cargo build --release --locked
+
+%install
+rm -rf %{buildroot}
+install -Dm755 target/release/starship %{buildroot}/usr/bin/starship
+
+%files
+/usr/bin/starship
+
+%changelog
+* Sun Jun 28 2026 Ermete Forge <forge@ermete.os> - 1.22.1-1
+- Native OCI build with x86-64-v3 optimizations

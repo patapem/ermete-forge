@@ -1,0 +1,128 @@
+name: Ermete Forge OCI Assembly
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'specs/**'
+      - 'config/**'
+      - 'scripts/**'
+      - '.github/workflows/build-forge.yml'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/ermete-forge
+  FEDORA_VERSION: 43
+
+jobs:
+  build-rpms:
+    name: 🏭 Compile & Forge RPMs
+    runs-on: ubuntu-latest
+    container:
+      image: registry.fedoraproject.org/fedora:43
+      options: --privileged
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: System Preparation
+        run: |
+          dnf install -y rpm-build rpmdevtools dnf5 \
+          gcc gcc-c++ make cmake clang lld mold \
+          cargo rust checkpolicy policycoreutils \
+          ccache sccache tar unzip wget curl
+          
+          # Inizializza l'albero RPM
+          rpmdev-setuptree
+          
+          # Inietta l'Overclock Globale (Macro CachyOS-level)
+          cp config/rpmmacros ~/.rpmmacros
+
+      - name: Set up ccache
+        uses: actions/cache@v4
+        with:
+          path: /root/.cache/ccache
+          key: ${{ runner.os }}-fedora${{ env.FEDORA_VERSION }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-fedora${{ env.FEDORA_VERSION }}-ccache-
+
+      - name: Build SELinux Policies (Ring 0)
+        run: |
+          cp specs/ermete-selinux/SOURCES/* ~/rpmbuild/SOURCES/
+          rpmbuild -ba specs/ermete-selinux/ermete-selinux.spec
+          
+      - name: Build NVIDIA KMOD (Ring 0)
+        run: |
+          curl -Lo /etc/yum.repos.d/fedora-nvidia.repo https://negativo17.org/repos/fedora-nvidia.repo
+          curl -Lo /etc/yum.repos.d/bieszczaders-kernel-cachyos.repo https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos/repo/fedora-${{ env.FEDORA_VERSION }}/bieszczaders-kernel-cachyos-fedora-${{ env.FEDORA_VERSION }}.repo
+          dnf install -y kernel-cachyos kernel-cachyos-devel-matched akmods akmod-nvidia gcc gcc-c++ make elfutils-libelf-devel openssl-devel
+          QUALIFIED_KERNEL=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-cachyos | sort -V | tail -n 1)
+          akmods --force --kernels "${QUALIFIED_KERNEL}" || true
+          cp /var/cache/akmods/nvidia/*.rpm ~/rpmbuild/RPMS/
+          
+      - name: Build Rust Tools & Assets (Ring 3)
+        run: |
+          dnf install -y rpm-build rpmdevtools
+          # Download sources via spectool and build
+          for spec in specs/ermete-starship/ermete-starship.spec \
+                      specs/ermete-matugen/ermete-matugen.spec \
+                      specs/ermete-bibata/ermete-bibata.spec; do
+            spectool -g -R $spec
+            dnf builddep -y $spec
+            rpmbuild -ba $spec
+          done
+          
+      - name: Build AGS from Source RPM (Ring 3)
+        run: |
+          dnf copr enable -y aylur/ags
+          dnf install -y dnf-plugins-core
+          dnf download --source aylurs-gtk-shell
+          dnf builddep -y aylurs-gtk-shell-*.src.rpm
+          rpmbuild --rebuild aylurs-gtk-shell-*.src.rpm
+          cp ~/rpmbuild/RPMS/*/*.rpm ~/rpmbuild/RPMS/ || true
+
+      - name: Collect Artifacts
+        run: |
+          mkdir -p /artifacts/rpms
+          find ~/rpmbuild/RPMS/ -type f -name "*.rpm" -exec cp {} /artifacts/rpms/ \;
+          
+      - name: Upload RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: forged-rpms
+          path: /artifacts/rpms/
+
+  publish-oci:
+    name: 📦 Publish OCI-as-a-Repo
+    needs: build-rpms
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download RPM Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: forged-rpms
+          path: rpms/
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push OCI Scratch Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Containerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

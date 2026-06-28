@@ -1,0 +1,10 @@
+module ermete_scx 1.0;
+
+require {
+        type kernel_t;
+        class process execmem;
+}
+
+#============= kernel_t ==============
+# Abilita il JIT eBPF per lo scheduler SCX/BORE superando il blocco W^X
+allow kernel_t self:process execmem;
