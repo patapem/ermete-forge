@@ -17,6 +17,9 @@ jobs:
   build-selinux:
     name: 🛡️ Build SELinux Policies
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
       options: --privileged
@@ -55,6 +58,9 @@ jobs:
   build-nvidia:
     name: 🎮 Build NVIDIA KMOD
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
       options: --privileged
@@ -93,6 +99,9 @@ jobs:
   build-ags:
     name: 🖥️ Build AGS (Gentoo/ClearLinux Extreme)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     container:
       image: registry.fedoraproject.org/fedora:41
       options: --privileged
@@ -139,6 +148,9 @@ jobs:
   build-starship:
     name: 🚀 Build Starship
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
       options: --privileged
@@ -184,6 +196,9 @@ jobs:
   build-matugen:
     name: 🎨 Build Matugen
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
       options: --privileged
@@ -229,6 +244,9 @@ jobs:
   build-bibata:
     name: 🖱️ Build Bibata
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
       options: --privileged
