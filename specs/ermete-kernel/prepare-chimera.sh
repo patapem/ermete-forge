@@ -29,9 +29,13 @@ if [ "$(basename "$SPEC_FILE")" != "kernel-cachyos.spec" ]; then
     mv "$SPEC_FILE" ~/rpmbuild/SPECS/kernel-cachyos.spec
 fi
 
-# 2. Iniezione patch ClearLinux (Es. Ottimizzazioni di memoria e boot)
+# 2. Iniezione patch Clear Linux (Es. Ottimizzazioni schedulatore e memoria)
 echo ">>> Injecting Clear Linux patches..."
-# (Here we would fetch clear linux specific patches if needed)
+curl -sL https://raw.githubusercontent.com/clearlinux-pkgs/linux/master/0001-sched-migrate.patch -o ~/rpmbuild/SOURCES/0001-sched-migrate.patch
+curl -sL https://raw.githubusercontent.com/clearlinux-pkgs/linux/master/0001-sched-numa-Initialise-numa_migrate_retry.patch -o ~/rpmbuild/SOURCES/0001-sched-numa-Initialise-numa_migrate_retry.patch
+
+# Modifica il file spec per includere le patch
+sed -i '/^Patch[0-9]*:.*/a Patch10001: 0001-sched-migrate.patch\nPatch10002: 0001-sched-numa-Initialise-numa_migrate_retry.patch' ~/rpmbuild/SPECS/kernel-cachyos.spec
 
 # 3. Configurazione Compilatore (Gentoo Style)
 echo ">>> Setting up Gentoo-style Clang/LTO parameters in the spec file..."
