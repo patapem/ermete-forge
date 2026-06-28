@@ -32,7 +32,7 @@ jobs:
           dnf install -y rpm-build rpmdevtools dnf5 \
           gcc gcc-c++ make cmake clang lld mold \
           cargo rust checkpolicy policycoreutils \
-          ccache sccache tar unzip wget curl
+          ccache sccache tar unzip wget curl mimalloc-devel
           
           # Inizializza l'albero RPM
           rpmdev-setuptree
@@ -74,12 +74,18 @@ jobs:
             rpmbuild -ba $spec
           done
           
-      - name: Build AGS from Source RPM (Ring 3)
+      - name: Build AGS from Source RPM (Ring 3 - Gentoo/ClearLinux Extreme)
         run: |
           dnf copr enable -y aylur/ags
           dnf install -y dnf-plugins-core
           dnf download --source aylurs-gtk-shell
           dnf builddep -y aylurs-gtk-shell-*.src.rpm
+          # Force Clang, Polly, and Mimalloc for Ring 3 UX (The ClearLinux/Gentoo extreme)
+          export CC=clang
+          export CXX=clang++
+          export CFLAGS="$CFLAGS -mllvm -polly -mllvm -polly-position=early"
+          export CXXFLAGS="$CXXFLAGS -mllvm -polly -mllvm -polly-position=early"
+          export LDFLAGS="$LDFLAGS -lmimalloc"
           rpmbuild --rebuild aylurs-gtk-shell-*.src.rpm
           cp ~/rpmbuild/RPMS/*/*.rpm ~/rpmbuild/RPMS/ || true
 
