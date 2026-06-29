@@ -1,0 +1,41 @@
+Name:           ananicy-cpp
+Version:        1.1.1
+Release:        1%{?dist}
+Summary:        Ananicy rewritten in C++
+
+License:        GPLv3
+URL:            https://github.com/CachyOS/ananicy-cpp
+Source0:        https://github.com/CachyOS/ananicy-cpp/archive/refs/tags/v%{version}.tar.gz
+
+BuildRequires:  cmake
+BuildRequires:  gcc-c++
+BuildRequires:  spdlog-devel
+BuildRequires:  systemd-devel
+BuildRequires:  nlohmann-json-devel
+
+%description
+Ananicy-cpp is a rewrite of ananicy in C++ for lower resource usage and faster startup.
+
+%prep
+%autosetup
+
+%build
+%cmake -DUSE_EXTERNAL_SPDLOG=ON -DUSE_EXTERNAL_FMTLIB=ON -DUSE_EXTERNAL_JSON=ON -DENABLE_SYSTEMD=ON
+%cmake_build
+
+%install
+%cmake_install
+mkdir -p %{buildroot}/etc/ananicy.d/
+mkdir -p %{buildroot}%{_unitdir}
+install -Dm644 ananicy-cpp.service %{buildroot}%{_unitdir}/ananicy-cpp.service
+
+%files
+%license LICENSE
+%doc README.md
+%{_bindir}/ananicy-cpp
+%{_unitdir}/ananicy-cpp.service
+%config(noreplace) /etc/ananicy.d/
+
+%changelog
+* Mon Jun 29 2026 Ermete Forge <forge@ermete> - 1.1.1-1
+- Initial forge build

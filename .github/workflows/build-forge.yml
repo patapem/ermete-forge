@@ -143,16 +143,41 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch Astal RPMs from COPR
+      - name: Calculate Hash
+        id: hash
+        run: echo "hash=${{ hashFiles('specs/ermete-astal/**', 'config/rpmmacros') }}" >> $GITHUB_OUTPUT
+      - name: Cache RPMs
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /github/home/RPMS/
+          key: rpm-ags-${{ steps.hash.outputs.hash }}
+      - name: Install Dependencies and Build Astal
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          dnf install -y dnf-plugins-core
-          dnf copr enable -y aneagle/ags-3
+          dnf install -y rpm-build rpmdevtools meson ninja-build gcc gcc-c++ vala pkgconf-pkg-config
+          cp config/rpmmacros ~/.rpmmacros
+          rpmdev-setuptree
+          
+          # Ordine di dipendenza critico per l'ecosistema Astal (AGS v3)
+          ASTAL_PKGS="appmenu-glib-translator astal-libs astal-io astal astal-gjs astal-gtk4 astal-lua aylurs-gtk-shell2"
+          
+          for pkg in $ASTAL_PKGS; do
+            echo "--- Compiling $pkg ---"
+            if [ -d "specs/ermete-astal/$pkg" ]; then
+              spectool -g -R specs/ermete-astal/$pkg/*.spec
+              dnf builddep -y specs/ermete-astal/$pkg/*.spec
+              rpmbuild -bb specs/ermete-astal/$pkg/*.spec
+              # Installa subito l'RPM buildato perché il pacchetto successivo ne ha bisogno
+              find ~/rpmbuild/RPMS/ -type f -name "*.rpm" | xargs -r dnf install -y
+            else
+              echo "Error: specs/ermete-astal/$pkg not found"
+              exit 1
+            fi
+          done
+          
           mkdir -p /github/home/RPMS
-          cd /github/home/RPMS
-          PACKAGES=$(dnf repoquery --repo=copr:copr.fedorainfracloud.org:aneagle:ags-3 -q --arch=x86_64,noarch | grep -E '^astal|^ags|^aylurs-gtk-shell|^appmenu' | grep -v 'debug' | grep -v '\.src$')
-          dnf download $PACKAGES
-          echo "Downloaded packages:"
-          ls -lh
+          cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Fetch standalone dart-sass
         run: |
           mkdir -p /github/home/BIN
@@ -327,16 +352,28 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch Ananicy RPMs from COPR
+      - name: Calculate Hash
+        id: hash
+        run: echo "hash=${{ hashFiles('specs/ermete-ananicy/**', 'config/rpmmacros') }}" >> $GITHUB_OUTPUT
+      - name: Cache RPMs
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /github/home/RPMS/
+          key: rpm-ananicy-${{ steps.hash.outputs.hash }}
+      - name: Install Dependencies and Build Ananicy
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          dnf install -y dnf-plugins-core
-          dnf copr enable -y bieszczaders/kernel-cachyos-addons
+          dnf install -y rpm-build rpmdevtools cmake gcc-c++ spdlog-devel systemd-devel nlohmann-json-devel fmt-devel
+          cp config/rpmmacros ~/.rpmmacros
+          rpmdev-setuptree
+          
+          spectool -g -R specs/ermete-ananicy/ananicy-cpp.spec
+          dnf builddep -y specs/ermete-ananicy/ananicy-cpp.spec
+          rpmbuild -bb specs/ermete-ananicy/ananicy-cpp.spec
+          
           mkdir -p /github/home/RPMS
-          cd /github/home/RPMS
-          PACKAGES=$(dnf repoquery --repo=copr:copr.fedorainfracloud.org:bieszczaders:kernel-cachyos-addons -q --arch=x86_64,noarch | grep -E '^ananicy-cpp' | grep -v 'debug' | grep -v '\.src$')
-          dnf download $PACKAGES
-          echo "Downloaded packages:"
-          ls -lh
+          cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Publish Micro-Container OCI
         run: |
           dnf install -y buildah
