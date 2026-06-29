@@ -47,7 +47,8 @@ for (( ver=$CURRENT_FVER; ver>=$MIN_FVER; ver-- )); do
     
     # 2. Controllo Clear Linux
     pushd /tmp/clearlinux-patches > /dev/null
-    CLEAR_COMMIT=$(git log --grep="update.*$F_VER" -n 1 --format="%H" || true)
+    F_VER_ESC="${F_VER//./\\.}"
+    CLEAR_COMMIT=$(git log --grep="update.*${F_VER_ESC}\\b" -n 1 --format="%H" || true)
     popd > /dev/null
     
     if [ -z "$CLEAR_COMMIT" ]; then
@@ -101,7 +102,8 @@ fi
 
 echo ">>> Sincronizzazione dinamica Clear Linux con Kernel $KERNEL_VER..."
 pushd /tmp/clearlinux-patches > /dev/null
-CLEAR_COMMIT=$(git log --grep="update.*$KERNEL_VER" -n 1 --format="%H" || true)
+KERNEL_VER_ESC="${KERNEL_VER//./\\.}"
+CLEAR_COMMIT=$(git log --grep="update.*${KERNEL_VER_ESC}\\b" -n 1 --format="%H" || true)
 if [ -n "$CLEAR_COMMIT" ]; then
     echo ">>> Allineamento Clear Linux al commit: $CLEAR_COMMIT"
     git checkout -q "$CLEAR_COMMIT"
@@ -172,6 +174,10 @@ CONFIG_LRU_GEN_ENABLED=y
 CONFIG_MZEN3=y
 # CONFIG_GENERIC_CPU is not set
 
+# Ottimizzazione Nativa Bedrock (Demandare a Kbuild, NO Macro RPM)
+CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=y
+CONFIG_LTO_CLANG_THIN=y
+
 # Ottimizzazione Tempi di Compilazione (Nessun Simbolo di Debug)
 CONFIG_DEBUG_INFO=n
 CONFIG_DEBUG_INFO_NONE=y
@@ -189,11 +195,8 @@ echo ">>> Generazione ~/.rpmmacros globale per la compilazione..."
 cat << 'EOF' > ~/.rpmmacros
 %buildid .chimera
 %toolchain clang
-%use_lto 1
-# ThinLTO Cache massivo per velocizzare la fase di linking (Persistito in GitHub Cache)
-%_lto_cflags -flto=thin -Wl,--thinlto-cache-dir=/github/home/.cache/ccache/thinlto
-%optflags %{__global_compiler_flags} -O3 -march=znver3 -pipe -Wno-error
-%kcflags -O3 -march=znver3 -pipe -Wno-error
+%optflags %{__global_compiler_flags} -march=znver3 -pipe -Wno-error
+%kcflags -march=znver3 -pipe -Wno-error
 
 # Disabilitazione nativa dei moduli non necessari/problematici (Fix LLVM LTO)
 %_without_selftests 1
