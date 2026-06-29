@@ -138,33 +138,34 @@ mv SPECS/kernel.spec.new SPECS/kernel.spec
 echo "========================================================="
 echo " FASE 3: TUNING KCONFIG E MACROS (Bedrock Naturale)"
 echo "========================================================="
-echo ">>> Creazione kernel-local..."
-# [BEST PRACTICE] L'uso di kernel-local è il metodo ufficiale supportato da Fedora
-cat << 'EOF' > SOURCES/kernel-local
+echo ">>> Iniezione chirurgica del tuning SOLO nei config x86_64..."
+# Evitiamo di rompere le build arm64/powerpc iniettando MZEN3 globalmente.
+# Applichiamo i Kconfig direttamente alle configurazioni x86_64 di base.
+
+for conf in SOURCES/kernel-x86_64*.config; do
+    cat << 'EOF' >> "$conf"
 # --- ERMETE FORGE: ZEN/LIQUORIX TUNING ---
 CONFIG_HZ_1000=y
 CONFIG_HZ=1000
 # CONFIG_HZ_300 is not set
 # CONFIG_HZ_250 is not set
+# CONFIG_HZ_100 is not set
 
-CONFIG_PREEMPT=y
-CONFIG_PREEMPT_BUILD=y
-CONFIG_PREEMPT_DYNAMIC=y
+# Lasciamo che CachyOS gestisca nativamente il PREEMPT per evitare conflitti Kconfig
 
 CONFIG_RCU_EXPERT=y
 CONFIG_RCU_BOOST=y
 CONFIG_RCU_BOOST_DELAY=500
 
-CONFIG_TCP_CONG_BBR=y
 CONFIG_DEFAULT_BBR=y
+CONFIG_TCP_CONG_BBR=y
+# CONFIG_DEFAULT_CUBIC is not set
 
 CONFIG_SCHED_BORE=y
 
-# Mitigations Off
-# CONFIG_SPECULATION_MITIGATIONS is not set
-
 # ZSTD Rapida per Moduli (Ottimizza Tempo di Compilazione)
 CONFIG_MODULE_COMPRESS_ZSTD=y
+# CONFIG_MODULE_COMPRESS_XZ is not set
 
 # Ottimizzazione MGLRU (Multi-Gen LRU) attiva per default (Ottimo per 32GB RAM)
 CONFIG_LRU_GEN=y
@@ -181,12 +182,12 @@ CONFIG_LTO_CLANG_THIN=y
 # Ottimizzazione Tempi di Compilazione (Nessun Simbolo di Debug)
 CONFIG_DEBUG_INFO=n
 CONFIG_DEBUG_INFO_NONE=y
-# CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT is not set
 
 # NT Sync per Gaming
 CONFIG_NTSYNC=y
 # -----------------------------------------
 EOF
+done
 
 echo ">>> Generazione ~/.rpmmacros globale per la compilazione..."
 # [BEST PRACTICE] Zero modifiche al file kernel.spec. Tutte le macro e i flag del
