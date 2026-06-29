@@ -8,27 +8,50 @@ mkdir -p "$WORKSPACE_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 cd "$WORKSPACE_DIR"
 
 echo "========================================================="
-echo " FASE 1: LE FONDAMENTA (Fedora Upstream Zero-Trust)"
-echo "========================================================="
-# [BEST PRACTICE] Lavoriamo con il kernel.spec nativo al 100%, ZERO comandi "sed".
-echo ">>> Scaricamento kernel.src.rpm puro..."
-dnf download --source kernel --releasever=41
-rpm -ivh kernel-*.src.rpm
-KERNEL_SRPM=$(ls kernel-*.src.rpm | head -n 1)
-KERNEL_VER=$(rpm -qp --qf '%{VERSION}' "$KERNEL_SRPM" | cut -d. -f1,2)
-rm -f kernel-*.src.rpm
-
-echo "========================================================="
-echo " FASE 2: I MUSCOLI E I NERVI (Scarico Patch)"
+echo " FASE 1: RISOLUZIONE DINAMICA KERNEL E PATCH"
 echo "========================================================="
 echo ">>> Clonazione repository patch CachyOS..."
 rm -rf /tmp/cachyos-patches
 git clone --depth 1 https://github.com/CachyOS/kernel-patches.git /tmp/cachyos-patches
 
+echo ">>> Determinazione massima versione kernel CachyOS supportata..."
+LATEST_CACHY_VER=$(ls -1d /tmp/cachyos-patches/* | grep -E '/[0-9]+\.[0-9]+$' | xargs -I{} sh -c 'if [ -d "{}/all" ]; then basename "{}"; fi' | sort -V | tail -n 1)
+
+if [ -z "$LATEST_CACHY_VER" ]; then
+    echo "ERRORE FATALE: Impossibile determinare la versione supportata da CachyOS!"
+    exit 1
+fi
+echo ">>> Massima versione CachyOS supportata: $LATEST_CACHY_VER"
+
+echo ">>> Ricerca dinamica del Fedora Releasever per kernel-$LATEST_CACHY_VER..."
+TARGET_RELEASEVER=""
+for ver in {43..39}; do
+    echo ">>> Controllo Fedora $ver..."
+    if dnf repoquery --quiet --releasever=$ver --source kernel | grep -q "^kernel-${LATEST_CACHY_VER}"; then
+        TARGET_RELEASEVER=$ver
+        echo ">>> Trovato match esatto su Fedora $ver!"
+        break
+    fi
+done
+
+if [ -z "$TARGET_RELEASEVER" ]; then
+    echo "ERRORE FATALE: Il kernel $LATEST_CACHY_VER non esiste nei repo Fedora attivi."
+    exit 1
+fi
+
+echo "========================================================="
+echo " FASE 2: LE FONDAMENTA (Fedora Upstream Zero-Trust)"
+echo "========================================================="
+echo ">>> Scaricamento kernel.src.rpm puro (Releasever: $TARGET_RELEASEVER)..."
+dnf download --source kernel --releasever=$TARGET_RELEASEVER
+rpm -ivh kernel-*.src.rpm
+KERNEL_SRPM=$(ls kernel-*.src.rpm | head -n 1)
+KERNEL_VER=$(rpm -qp --qf '%{VERSION}' "$KERNEL_SRPM" | cut -d. -f1,2)
+rm -f kernel-*.src.rpm
+
 CACHY_PATCH_DIR="/tmp/cachyos-patches/$KERNEL_VER"
 if [ ! -d "$CACHY_PATCH_DIR/all" ]; then
-    echo "ERRORE FATALE: Patch CachyOS per $KERNEL_VER non trovate!"
-    echo "Zero-Trust Policy: Nessun fallback. Le patch del kernel devono essere esatte per evitare corruzioni silenziose."
+    echo "ERRORE FATALE: Discrepanza dinamica. Trovato $KERNEL_VER ma mancano le patch CachyOS!"
     exit 1
 fi
 
