@@ -23,8 +23,9 @@ KERNEL_SRPM=$(ls kernel-*.src.rpm | head -n 1)
 KERNEL_VER=$(rpm -qp --qf '%{VERSION}' "$KERNEL_SRPM" | cut -d. -f1,2)
 rm -f kernel-*.src.rpm
 
-# Rinominiamo il kernel
+# Rinominiamo il kernel e disabilitiamo moduli che rompono la build LLVM o rallentano inutilmente (tools, selftests)
 sed -i 's/Name: kernel/Name: kernel-chimera/' SPECS/kernel.spec
+sed -i '1i %define with_selftests 0\n%define with_tools 0\n%define with_perf 0\n%define with_bpftool 0' SPECS/kernel.spec
 # Disabilitiamo il debuginfo
 sed -i 's/%define with_debuginfo %{?_without_debuginfo: 0} %{?!_without_debuginfo: 1}/%define with_debuginfo 0/' SPECS/kernel.spec
 
@@ -55,6 +56,36 @@ echo ">>> Scaricamento patch chirurgiche da Intel Clear Linux..."
 curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/master/0001-sched-migrate.patch -o SOURCES/0001-clearlinux-sched-migrate.patch || true
 curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/master/0001-sched-numa-Initialise-numa_migrate_retry.patch -o SOURCES/0002-clearlinux-sched-numa-Initialise-numa_migrate_retry.patch || true
 curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/master/0001-mm-memcontrol-add-some-branch-hints-based-on-gcov-an.patch -o SOURCES/0003-clearlinux-mm-memcontrol-branch-hints.patch || true
+
+echo ">>> Creazione kernel-local per Kconfig tuning (Zen/Liquorix style)..."
+cat << 'EOF' > SOURCES/kernel-local
+# --- ERMETE FORGE: ZEN/LIQUORIX TUNING ---
+# Timer a 1000Hz per bassissima latenza
+CONFIG_HZ_1000=y
+CONFIG_HZ=1000
+# CONFIG_HZ_300 is not set
+# CONFIG_HZ_250 is not set
+
+# Prelazione (Preemption) per Desktop/Gaming
+CONFIG_PREEMPT=y
+# CONFIG_PREEMPT_VOLUNTARY is not set
+# CONFIG_PREEMPT_NONE is not set
+CONFIG_PREEMPT_BUILD=y
+CONFIG_PREEMPT_DYNAMIC=y
+
+# RCU Tuning per massima interattività
+CONFIG_RCU_EXPERT=y
+CONFIG_RCU_BOOST=y
+CONFIG_RCU_BOOST_DELAY=500
+
+# BBRv3 e TCP Ottimizzato (da CachyOS/Xanmod)
+CONFIG_TCP_CONG_BBR=y
+CONFIG_DEFAULT_BBR=y
+
+# BORE Scheduler (introdotto dalle patch CachyOS)
+CONFIG_SCHED_BORE=y
+# -----------------------------------------
+EOF
 
 echo ">>> Iniezione dinamica patch in kernel.spec prima di %build..."
 # Invece di fare affidamento a commenti che cambiano, forziamo l'applicazione delle patch
