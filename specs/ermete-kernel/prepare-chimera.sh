@@ -27,7 +27,7 @@ echo ">>> Ricerca dinamica del Fedora Releasever per kernel-$LATEST_CACHY_VER...
 TARGET_RELEASEVER=""
 for ver in {43..39}; do
     echo ">>> Controllo Fedora $ver..."
-    if dnf repoquery --quiet --releasever=$ver --source kernel | grep -q "^kernel-${LATEST_CACHY_VER}"; then
+    if dnf download --source kernel --releasever=$ver --url | grep -q "/kernel-${LATEST_CACHY_VER}"; then
         TARGET_RELEASEVER=$ver
         echo ">>> Trovato match esatto su Fedora $ver!"
         break
