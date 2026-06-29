@@ -1,5 +1,5 @@
 Name:           ermete-matugen
-Version:        2.4.0
+Version:        4.1.0
 Release:        1%{?dist}
 Summary:        Material Design 3 color generation tool
 License:        GPLv3

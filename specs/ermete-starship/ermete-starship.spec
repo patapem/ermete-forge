@@ -1,5 +1,5 @@
 Name:           ermete-starship
-Version:        1.22.1
+Version:        1.26.0
 Release:        1%{?dist}
 Summary:        The minimal, blazing-fast, and infinitely customizable prompt for any shell!
 License:        ISC
