@@ -31,32 +31,37 @@ if [ ! -d "$CACHY_PATCH_DIR/all" ]; then
     CACHY_PATCH_DIR=$(ls -d /tmp/cachyos-patches/[0-9].* | sort -V | tail -n 1)
 fi
 
-echo ">>> Creazione del master patch file per RPM (linux-kernel-test.patch)..."
-# [BEST PRACTICE] Fedora kernel.spec include per design un hook "Patch999999: linux-kernel-test.patch"
-# che viene applicato automaticamente da ApplyOptionalPatch in %prep.
-# Sfruttiamo questa interfaccia nativa concatenando tutte le nostre patch dentro quel file.
-# In questo modo lo spec originale rimane immacolato e bit-perfect.
-> SOURCES/linux-kernel-test.patch
+echo ">>> Scansione e registrazione delle patch nello spec (Native RPM Best Practice)..."
+# Invece di concatenare file (hack), registriamo ogni patch con un suo ID univoco
+# all'interno del file spec. In questo modo RPM traccia nativamente i sorgenti
+# e in caso di errore sappiamo esattamente quale patch ha fallito.
+PATCH_ID=10000
 
 if [ -d "$CACHY_PATCH_DIR/all" ]; then
     for patch in "$CACHY_PATCH_DIR"/all/*.patch; do
-        cat "$patch" >> SOURCES/linux-kernel-test.patch
-        echo "" >> SOURCES/linux-kernel-test.patch
+        cp "$patch" SOURCES/
+        patch_name=$(basename "$patch")
+        sed -i "/^Patch999999:/i Patch${PATCH_ID}: ${patch_name}" SPECS/kernel.spec
+        sed -i "/^%build/i %patch -P ${PATCH_ID} -p1" SPECS/kernel.spec
+        ((PATCH_ID++))
     done
 fi
 
-# [BEST PRACTICE] Niente "|| true". Se il curl fallisce, la build si ferma garantendo sicurezza.
 echo ">>> Aggiunta patch chirurgiche Clear Linux..."
-curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0001-sched-migrate.patch >> SOURCES/linux-kernel-test.patch
-echo "" >> SOURCES/linux-kernel-test.patch
-curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0001-sched-numa-Initialise-numa_migrate_retry.patch >> SOURCES/linux-kernel-test.patch
-echo "" >> SOURCES/linux-kernel-test.patch
-curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0001-mm-memcontrol-add-some-branch-hints-based-on-gcov-an.patch >> SOURCES/linux-kernel-test.patch
-echo "" >> SOURCES/linux-kernel-test.patch
-curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0002-sched-core-add-some-branch-hints-based-on-gcov-analy.patch >> SOURCES/linux-kernel-test.patch
-echo "" >> SOURCES/linux-kernel-test.patch
-curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0170-sched-Add-unlikey-branch-hints-to-several-system-cal.patch >> SOURCES/linux-kernel-test.patch
-echo "" >> SOURCES/linux-kernel-test.patch
+for patch_url in \
+    "https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0001-sched-migrate.patch" \
+    "https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0001-sched-numa-Initialise-numa_migrate_retry.patch" \
+    "https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0001-mm-memcontrol-add-some-branch-hints-based-on-gcov-an.patch" \
+    "https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0002-sched-core-add-some-branch-hints-based-on-gcov-analy.patch" \
+    "https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0170-sched-Add-unlikey-branch-hints-to-several-system-cal.patch"; do
+    
+    patch_name=$(basename "$patch_url")
+    curl -sL -f "$patch_url" -o "SOURCES/clearlinux-$patch_name"
+    
+    sed -i "/^Patch999999:/i Patch${PATCH_ID}: clearlinux-${patch_name}" SPECS/kernel.spec
+    sed -i "/^%build/i %patch -P ${PATCH_ID} -p1" SPECS/kernel.spec
+    ((PATCH_ID++))
+done
 
 echo "========================================================="
 echo " FASE 3: TUNING KCONFIG E MACROS (Bedrock Naturale)"
@@ -90,7 +95,15 @@ CONFIG_SCHED_BORE=y
 CONFIG_MODULE_COMPRESS_ZSTD=y
 CONFIG_MODULE_COMPRESS_ZSTD_LEVEL=19
 
-# NTSYNC / FSYNC
+# Ottimizzazione MGLRU (Multi-Gen LRU) attiva per default (Ottimo per 32GB RAM)
+CONFIG_LRU_GEN=y
+CONFIG_LRU_GEN_ENABLED=y
+
+# Ottimizzazione CPU Architettura Esatta (Zen 3 - Ryzen 5800X3D)
+CONFIG_MZEN3=y
+# CONFIG_GENERIC_CPU is not set
+
+# NT Sync per Gaming
 CONFIG_NTSYNC=y
 # -----------------------------------------
 EOF
@@ -104,8 +117,8 @@ cat << 'EOF' > ~/.rpmmacros
 %toolchain clang
 %use_lto 1
 %_lto_cflags -flto=thin
-%optflags %{__global_compiler_flags} -O3 -march=x86-64-v3 -pipe -Wno-error -g
-%kcflags -O3 -march=x86-64-v3 -pipe -Wno-error
+%optflags %{__global_compiler_flags} -O3 -march=znver3 -pipe -Wno-error -g
+%kcflags -O3 -march=znver3 -pipe -Wno-error
 EOF
 
 echo "========================================================="
