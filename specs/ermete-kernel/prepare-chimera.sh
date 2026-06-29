@@ -18,40 +18,51 @@ echo ">>> Clonazione repository patch Clear Linux..."
 rm -rf /tmp/clearlinux-patches
 git clone --depth 500 https://github.com/clearlinux-pkgs/linux.git /tmp/clearlinux-patches
 
-echo ">>> Determinazione massima versione kernel CachyOS supportata..."
-LATEST_CACHY_VER=$(ls -1d /tmp/cachyos-patches/* | grep -E '/[0-9]+\.[0-9]+$' | xargs -I{} sh -c 'if [ -d "{}/all" ]; then basename "{}"; fi' | sort -V | tail -n 1)
+echo ">>> Ricerca della migliore versione kernel supportata (Fedora -> CachyOS -> ClearLinux)..."
+TARGET_RELEASEVER=""
+TARGET_KERNEL_VER=""
 
-pushd /tmp/clearlinux-patches > /dev/null
-LATEST_CLEAR_VER=$(git log --grep="update.*[0-9]\+\.[0-9]\+" -n 100 --format="%B" | grep -oE '[0-9]+\.[0-9]+' | sort -V | tail -n 1)
-popd > /dev/null
-
-if [ -z "$LATEST_CACHY_VER" ] || [ -z "$LATEST_CLEAR_VER" ]; then
-    echo "ERRORE FATALE: Impossibile determinare le versioni supportate!"
-    exit 1
-fi
-echo ">>> Massima versione CachyOS: $LATEST_CACHY_VER"
-echo ">>> Massima versione Clear Linux: $LATEST_CLEAR_VER"
-
-TARGET_KERNEL_VER=$(echo -e "$LATEST_CACHY_VER\n$LATEST_CLEAR_VER" | sort -V | head -n 1)
-echo ">>> Versione target unificata (Intersezione sicura): $TARGET_KERNEL_VER"
-
-echo ">>> Ricerca dinamica del Fedora Releasever per kernel-$TARGET_KERNEL_VER..."
 source /etc/os-release
 CURRENT_FVER=$VERSION_ID
 MIN_FVER=$((CURRENT_FVER - 4))
 
-TARGET_RELEASEVER=""
 for (( ver=$CURRENT_FVER; ver>=$MIN_FVER; ver-- )); do
-    echo ">>> Controllo Fedora $ver..."
-    if dnf download --source kernel --releasever=$ver --url | grep -q "/kernel-${TARGET_KERNEL_VER}"; then
-        TARGET_RELEASEVER=$ver
-        echo ">>> Trovato match esatto su Fedora $ver!"
-        break
+    echo ">>> Analisi Fedora $ver..."
+    
+    URL=$(dnf download --source kernel --releasever=$ver --url 2>/dev/null | grep -E '\.src\.rpm' | head -n 1 || true)
+    if [ -z "$URL" ]; then
+        echo "    Nessun kernel sorgente trovato nei repo per Fedora $ver."
+        continue
     fi
+    
+    # Estraiamo la versione major.minor (es. 6.17 da kernel-6.17.10-100.fc41.src.rpm)
+    F_VER=$(basename "$URL" | sed -E 's/^kernel-([0-9]+\.[0-9]+).*/\1/')
+    echo "    Kernel in Fedora $ver: $F_VER"
+    
+    # 1. Controllo CachyOS
+    if [ ! -d "/tmp/cachyos-patches/$F_VER/all" ]; then
+        echo "    CachyOS NON supporta $F_VER. Passo al precedente..."
+        continue
+    fi
+    
+    # 2. Controllo Clear Linux
+    pushd /tmp/clearlinux-patches > /dev/null
+    CLEAR_COMMIT=$(git log --grep="update.*$F_VER" -n 1 --format="%H" || true)
+    popd > /dev/null
+    
+    if [ -z "$CLEAR_COMMIT" ]; then
+        echo "    Clear Linux NON ha patch per $F_VER. Passo al precedente..."
+        continue
+    fi
+    
+    echo ">>> MATCH PERFETTO! Fedora $ver fornisce kernel $F_VER, pienamente supportato da CachyOS e ClearLinux."
+    TARGET_RELEASEVER=$ver
+    TARGET_KERNEL_VER=$F_VER
+    break
 done
 
 if [ -z "$TARGET_RELEASEVER" ]; then
-    echo "ERRORE FATALE: Il kernel $TARGET_KERNEL_VER non esiste nei repo Fedora attivi."
+    echo "ERRORE FATALE: Nessun kernel compatibile trovato incrociando Fedora, CachyOS e Clear Linux."
     exit 1
 fi
 
