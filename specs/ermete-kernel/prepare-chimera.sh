@@ -36,8 +36,12 @@ TARGET_KERNEL_VER=$(echo -e "$LATEST_CACHY_VER\n$LATEST_CLEAR_VER" | sort -V | h
 echo ">>> Versione target unificata (Intersezione sicura): $TARGET_KERNEL_VER"
 
 echo ">>> Ricerca dinamica del Fedora Releasever per kernel-$TARGET_KERNEL_VER..."
+source /etc/os-release
+CURRENT_FVER=$VERSION_ID
+MIN_FVER=$((CURRENT_FVER - 4))
+
 TARGET_RELEASEVER=""
-for ver in {43..39}; do
+for (( ver=$CURRENT_FVER; ver>=$MIN_FVER; ver-- )); do
     echo ">>> Controllo Fedora $ver..."
     if dnf download --source kernel --releasever=$ver --url | grep -q "/kernel-${TARGET_KERNEL_VER}"; then
         TARGET_RELEASEVER=$ver
