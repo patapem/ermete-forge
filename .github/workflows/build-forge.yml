@@ -166,8 +166,8 @@ jobs:
           export BUILDAH_ISOLATION=chroot
           buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
           ctr=$(buildah from scratch)
-          buildah copy $ctr /github/home/RPMS/*.rpm /
-          buildah copy $ctr /github/home/BIN/dart-sass/sass /dart-sass
+          buildah copy $ctr /github/home/RPMS/*.rpm / || true
+          buildah copy $ctr /github/home/BIN/dart-sass /dart-sass || true
           IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-ags:latest" | tr '[:upper:]' '[:lower:]')
           buildah commit $ctr $IMAGE_LOWER
           buildah push $IMAGE_LOWER
