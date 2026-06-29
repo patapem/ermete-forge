@@ -53,10 +53,11 @@ echo "========================================================="
 echo " FASE 3: I NERVI (Ottimizzazioni Clear Linux)"
 echo "========================================================="
 echo ">>> Scaricamento patch chirurgiche da Intel Clear Linux..."
-curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/master/0001-sched-migrate.patch -o SOURCES/0001-clearlinux-sched-migrate.patch || true
-curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/master/0001-sched-numa-Initialise-numa_migrate_retry.patch -o SOURCES/0002-clearlinux-sched-numa-Initialise-numa_migrate_retry.patch || true
-curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/master/0001-mm-memcontrol-add-some-branch-hints-based-on-gcov-an.patch -o SOURCES/0003-clearlinux-mm-memcontrol-branch-hints.patch || true
-
+curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0001-sched-migrate.patch -o SOURCES/0001-clearlinux-sched-migrate.patch || true
+curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0001-sched-numa-Initialise-numa_migrate_retry.patch -o SOURCES/0002-clearlinux-sched-numa-Initialise-numa_migrate_retry.patch || true
+curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0001-mm-memcontrol-add-some-branch-hints-based-on-gcov-an.patch -o SOURCES/0003-clearlinux-mm-memcontrol-branch-hints.patch || true
+curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0002-sched-core-add-some-branch-hints-based-on-gcov-analy.patch -o SOURCES/0004-clearlinux-sched-core-branch-hints.patch || true
+curl -sL -f https://raw.githubusercontent.com/clearlinux-pkgs/linux/main/0170-sched-Add-unlikey-branch-hints-to-several-system-cal.patch -o SOURCES/0005-clearlinux-sched-syscall-hints.patch || true
 echo ">>> Creazione kernel-local per Kconfig tuning (Zen/Liquorix style)..."
 cat << 'EOF' > SOURCES/kernel-local
 # --- ERMETE FORGE: ZEN/LIQUORIX TUNING ---
