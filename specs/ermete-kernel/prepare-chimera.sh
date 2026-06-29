@@ -85,6 +85,17 @@ CONFIG_DEFAULT_BBR=y
 
 # BORE Scheduler (introdotto dalle patch CachyOS)
 CONFIG_SCHED_BORE=y
+
+# 2. Mitigations Off (Massima Performance, addio sicurezza CPU bug)
+# Disabilitiamo a livello di compilazione le mitigazioni per guadagnare fino al 15% di performance
+# CONFIG_SPECULATION_MITIGATIONS is not set
+
+# 3. Compressione Moduli ZSTD Estrema (Livello 19 per boot istantaneo)
+CONFIG_MODULE_COMPRESS_ZSTD=y
+CONFIG_MODULE_COMPRESS_ZSTD_LEVEL=19
+
+# 4. NTSYNC / FSYNC per Proton/Wine Gaming (Spesso incluso in CachyOS come NTSYNC)
+CONFIG_NTSYNC=y
 # -----------------------------------------
 EOF
 
