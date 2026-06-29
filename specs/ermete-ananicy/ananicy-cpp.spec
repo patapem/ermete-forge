@@ -17,7 +17,7 @@ BuildRequires:  nlohmann-json-devel
 Ananicy-cpp is a rewrite of ananicy in C++ for lower resource usage and faster startup.
 
 %prep
-%autosetup
+%autosetup -n ananicy-cpp-v%{version}
 
 %build
 %cmake -DUSE_EXTERNAL_SPDLOG=ON -DUSE_EXTERNAL_FMTLIB=ON -DUSE_EXTERNAL_JSON=ON -DENABLE_SYSTEMD=ON
