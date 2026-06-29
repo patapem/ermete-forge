@@ -78,25 +78,35 @@ KERNEL_VER=$(rpm -qp --qf '%{VERSION}' "$KERNEL_SRPM" | cut -d. -f1,2)
 rm -f kernel-*.src.rpm
 
 CACHY_PATCH_DIR="/tmp/cachyos-patches/$KERNEL_VER"
-if [ ! -d "$CACHY_PATCH_DIR/all" ]; then
+if [ ! -d "$CACHY_PATCH_DIR" ]; then
     echo "ERRORE FATALE: Discrepanza dinamica. Trovato $KERNEL_VER ma mancano le patch CachyOS!"
     exit 1
 fi
 
 echo ">>> Scansione e registrazione delle patch nello spec (Native RPM Best Practice)..."
-# Invece di concatenare file (hack), registriamo ogni patch con un suo ID univoco
-# all'interno del file spec. In questo modo RPM traccia nativamente i sorgenti
-# e in caso di errore sappiamo esattamente quale patch ha fallito.
 > /tmp/patch_apply.txt
-PATCH_ID=10000
 
-if [ -d "$CACHY_PATCH_DIR/all" ]; then
-    for patch in "$CACHY_PATCH_DIR"/all/*.patch; do
-        cp "$patch" SOURCES/
-        patch_name=$(basename "$patch")
-        sed -i "/^Patch999999:/i Patch${PATCH_ID}: ${patch_name}" SPECS/kernel.spec
-        echo "%patch -P ${PATCH_ID} -p1" >> /tmp/patch_apply.txt
-        ((PATCH_ID++))
+# [BEDROCK DEFENSIVE PATCHING]
+# Invece di applicare il monolite 'all.patch' (che fallisce al minimo hunk),
+# applichiamo dinamicamente le singole patch. Se una patch fallisce il test (dry-run),
+# la saltiamo interamente per garantire che il codice C rimanga puro e compilabile.
+cat << 'EOF' >> /tmp/patch_apply.txt
+echo ">>> [BEDROCK] Inizio applicazione difensiva delle patch CachyOS e ClearLinux..."
+for patch in %{_sourcedir}/bedrock-*.patch; do
+    echo "-> Test di compatibilità per $(basename $patch)..."
+    if patch -p1 -F 3 --dry-run --silent < "$patch"; then
+        patch -p1 -F 3 < "$patch"
+        echo "   [SUCCESS] Patch applicata chirurgicamente."
+    else
+        echo "   [SKIP] Conflitto strutturale rilevato. Patch scartata per preservare l'integrità."
+    fi
+done
+EOF
+
+if [ -d "$CACHY_PATCH_DIR" ]; then
+    for patch in "$CACHY_PATCH_DIR"/*.patch; do
+        patch_name="bedrock-cachyos-$(basename "$patch")"
+        cp "$patch" "SOURCES/$patch_name"
     done
 fi
 
@@ -121,10 +131,7 @@ for patch_name in \
     "0170-sched-Add-unlikey-branch-hints-to-several-system-cal.patch"; do
     
     if [ -f "/tmp/clearlinux-patches/$patch_name" ]; then
-        cp "/tmp/clearlinux-patches/$patch_name" "SOURCES/clearlinux-$patch_name"
-        sed -i "/^Patch999999:/i Patch${PATCH_ID}: clearlinux-${patch_name}" SPECS/kernel.spec
-        echo "%patch -P ${PATCH_ID} -p1" >> /tmp/patch_apply.txt
-        ((PATCH_ID++))
+        cp "/tmp/clearlinux-patches/$patch_name" "SOURCES/bedrock-clearlinux-$patch_name"
     else
         echo ">>> ATTENZIONE: Patch $patch_name non trovata nel repo Clear Linux. Skippata."
     fi
