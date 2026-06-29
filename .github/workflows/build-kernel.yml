@@ -54,7 +54,7 @@ jobs:
           mkdir -p ~/.cache/ccache
           ccache -z
           spectool -g -R ~/rpmbuild/SPECS/kernel.spec
-          dnf builddep -y ~/rpmbuild/SPECS/kernel.spec || true
+          dnf builddep -y ~/rpmbuild/SPECS/kernel.spec
           rpmbuild -ba ~/rpmbuild/SPECS/kernel.spec --target x86_64
           ccache -s
           
