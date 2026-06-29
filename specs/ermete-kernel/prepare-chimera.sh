@@ -97,9 +97,8 @@ CONFIG_SCHED_BORE=y
 # Mitigations Off
 # CONFIG_SPECULATION_MITIGATIONS is not set
 
-# ZSTD Estrema
+# ZSTD Rapida per Moduli (Ottimizza Tempo di Compilazione)
 CONFIG_MODULE_COMPRESS_ZSTD=y
-CONFIG_MODULE_COMPRESS_ZSTD_LEVEL=19
 
 # Ottimizzazione MGLRU (Multi-Gen LRU) attiva per default (Ottimo per 32GB RAM)
 CONFIG_LRU_GEN=y
@@ -142,6 +141,11 @@ cat << 'EOF' > ~/.rpmmacros
 %_without_debug 1
 %_without_debuginfo 1
 %_without_doc 1
+
+# Compressione RPM istantanea (Elimina colli di bottiglia Single-Thread)
+# Essendo destinati a un container OCI, la compressione RPM è inutile e ridondante.
+%_binary_payload w1.zstdio
+%_source_payload w1.zstdio
 EOF
 
 echo "========================================================="
