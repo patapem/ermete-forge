@@ -22,8 +22,7 @@ Ananicy-cpp is a rewrite of ananicy in C++ for lower resource usage and faster s
 # Patch per glibc > 2.40 che include nativamente sched_attr (mancante di sched_latency_nice)
 find src -type f \( -name "*.cpp" -o -name "*.h" \) -exec sed -i 's/\bsched_getattr\b/sys_sched_getattr/g' {} +
 find src -type f \( -name "*.cpp" -o -name "*.h" \) -exec sed -i 's/\bsched_setattr\b/sys_sched_setattr/g' {} +
-find src -type f \( -name "*.cpp" -o -name "*.h" \) -exec sed -i 's/struct \[\[gnu::packed\]\] sched_attr/struct sys_sched_attr/g' {} +
-find src -type f \( -name "*.cpp" -o -name "*.h" \) -exec sed -i 's/struct sched_attr/struct sys_sched_attr/g' {} +
+find src -type f \( -name "*.cpp" -o -name "*.h" \) -exec sed -i 's/\bsched_attr\b/sys_sched_attr/g' {} +
 
 %build
 %cmake -DUSE_EXTERNAL_SPDLOG=ON -DUSE_EXTERNAL_FMTLIB=ON -DUSE_EXTERNAL_JSON=ON -DENABLE_SYSTEMD=ON
