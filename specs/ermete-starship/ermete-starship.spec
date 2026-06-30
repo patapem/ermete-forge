@@ -25,6 +25,7 @@ Compiled natively in Ermete Forge with extreme optimizations.
 %build
 %set_build_flags
 export RUSTFLAGS="%{rustflags}"
+export CARGO_PROFILE_RELEASE_LTO="thin"
 # Disable GCC LTO in CFLAGS to prevent cc crate linkage errors with Rust LLVM
 export CFLAGS="$(echo $CFLAGS | sed 's/-flto=auto//g')"
 export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-flto=auto//g')"
