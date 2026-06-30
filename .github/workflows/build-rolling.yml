@@ -71,14 +71,27 @@ jobs:
           echo "--- Downloading Source RPM per ${{ matrix.package }} ---"
           dnf download --source ${{ matrix.package }}
           
-          echo "--- Installazione dipendenze di build ---"
-          dnf builddep -y *.src.rpm
+          echo "--- Installazione dipendenze di build (DNF5 Bugfix) ---"
+          rpm -ivh *.src.rpm || true
+          dnf builddep -y ~/rpmbuild/SPECS/*.spec
           
           echo "--- Bedrock Hack: Ripristino README.md mancanti per le dipendenze Rust ---"
           find /usr/share/cargo/registry/ -maxdepth 1 -mindepth 1 -type d -exec touch {}/README.md \; || true
           
+          echo "--- Applicazione Quirks Specifici ---"
+          bash config/apply-quirks.sh "${{ matrix.package }}"
+          
           echo "--- Ricompilazione estrema con macro Ermete ---"
-          rpmbuild --rebuild *.src.rpm
+          if ! rpmbuild --rebuild *.src.rpm; then
+            if ls ~/rpmbuild/SRPMS/*.buildreqs.nosrc.rpm >/dev/null 2>&1; then
+              echo "--- Installazione Dipendenze Dinamiche (%generate_buildrequires) ---"
+              dnf install -y ~/rpmbuild/SRPMS/*.buildreqs.nosrc.rpm
+              echo "--- Secondo tentativo di Ricompilazione Estrema ---"
+              rpmbuild --rebuild *.src.rpm
+            else
+              exit 1
+            fi
+          fi
           
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
