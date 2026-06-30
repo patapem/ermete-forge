@@ -1,5 +1,5 @@
-libvirt
-bpftool
+# libvirt (Broken in Rawhide virsh-domain.c)
+# bpftool (Broken in Rawhide vmlinux.h bpf_stream_vprintk)
 brightnessctl
 btrfs-progs
 dbus-tools
