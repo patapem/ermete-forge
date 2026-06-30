@@ -7,10 +7,6 @@ on:
         required: true
         type: string
 
-env:
-  REGISTRY: ghcr.io
-  FEDORA_VERSION: 43
-
 jobs:
   prepare-matrix:
     name: 📋 Parse Packages
@@ -37,6 +33,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      REGISTRY: ghcr.io
+      FEDORA_VERSION: 43
     container:
       image: registry.fedoraproject.org/fedora:43
       options: --privileged
