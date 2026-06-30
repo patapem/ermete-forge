@@ -71,7 +71,7 @@ jobs:
           dnf builddep -y ~/rpmbuild/SPECS/*.spec
           
           echo "--- Bedrock Hack: Ripristino README.md mancanti per le dipendenze Rust ---"
-          find /usr/share/cargo/registry/ -maxdepth 1 -mindepth 1 -type d -exec touch {}/README.md \; || true
+          find /usr/share/cargo/registry/ -maxdepth 1 -mindepth 1 -type d -exec touch "{}"/README.md \; || true
           
           echo "--- Bedrock Hack: Rimozione --locked per compatibilità RPM Rust ---"
           sed -i 's/--locked//g' /usr/lib/rpm/macros.d/macros.cargo || true
@@ -85,7 +85,7 @@ jobs:
               echo "--- Installazione Dipendenze Dinamiche (%generate_buildrequires) ---"
               dnf install -y ~/rpmbuild/SRPMS/*.buildreqs.nosrc.rpm
               echo "--- Secondo tentativo di Ricompilazione Estrema ---"
-              find /usr/share/cargo/registry/ -maxdepth 1 -mindepth 1 -type d -exec touch {}/README.md \; || true
+              find /usr/share/cargo/registry/ -maxdepth 1 -mindepth 1 -type d -exec touch "{}"/README.md \; || true
               sed -i 's/--locked//g' /usr/lib/rpm/macros.d/macros.cargo || true
               rpmbuild --rebuild --nocheck *.src.rpm
             else
