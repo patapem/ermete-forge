@@ -1,0 +1,91 @@
+name: Ermete Forge Hardware
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'specs/ermete-nvidia/**'
+      - '.github/workflows/build-forge-hardware.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+env:
+  REGISTRY: ghcr.io
+  FEDORA_VERSION: 43
+
+jobs:
+  build-nvidia:
+    name: 🎮 Build NVIDIA KMOD
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: registry.fedoraproject.org/fedora:43
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve Kernel Version and Install Chimera Headers
+        id: kernel
+        run: |
+          curl -Lo /etc/yum.repos.d/fedora-nvidia.repo https://negativo17.org/repos/fedora-nvidia.repo
+          dnf install -y buildah
+          export STORAGE_DRIVER=vfs
+          export BUILDAH_ISOLATION=chroot
+          buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ghcr.io
+          ctr=$(buildah from ghcr.io/${{ github.repository_owner }}/ermete-forge-kernel:latest)
+          buildah mount $ctr
+          mnt=$(buildah mount $ctr)
+          dnf install -y $mnt/*.rpm
+          buildah umount $ctr
+          QUALIFIED_KERNEL=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel | sort -V | tail -n 1)
+          echo "kernel_ver=${QUALIFIED_KERNEL}" >> $GITHUB_OUTPUT
+      - name: Cache RPMs
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/akmods/nvidia/
+          key: rpm-nvidia-${{ steps.kernel.outputs.kernel_ver }}
+      - name: Install Dependencies and Build
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          dnf install -y akmods akmod-nvidia gcc gcc-c++ make elfutils-libelf-devel openssl-devel rpm-build rpmdevtools clang lld llvm
+          
+          # Force Clang/LLVM tooling for NVIDIA module to match the LTO-enabled Chimera Kernel
+          mkdir -p /usr/local/llvm-bin
+          ln -sf /usr/bin/clang /usr/local/llvm-bin/gcc
+          ln -sf /usr/bin/clang++ /usr/local/llvm-bin/g++
+          ln -sf /usr/bin/clang /usr/local/llvm-bin/cc
+          ln -sf /usr/bin/clang++ /usr/local/llvm-bin/c++
+          ln -sf /usr/bin/ld.lld /usr/local/llvm-bin/ld
+          ln -sf /usr/bin/llvm-ar /usr/local/llvm-bin/ar
+          ln -sf /usr/bin/llvm-nm /usr/local/llvm-bin/nm
+          ln -sf /usr/bin/llvm-objcopy /usr/local/llvm-bin/objcopy
+          ln -sf /usr/bin/llvm-objdump /usr/local/llvm-bin/objdump
+          ln -sf /usr/bin/llvm-readelf /usr/local/llvm-bin/readelf
+          ln -sf /usr/bin/llvm-strip /usr/local/llvm-bin/strip
+          
+          cp scripts/akmods /usr/sbin/akmods
+          cp scripts/kmodtool /usr/bin/kmodtool
+          
+          # Inject the LLVM wrapper PATH into the akmods script before rpmbuild is invoked
+          sed -i 's|/usr/sbin/akmodsbuild|PATH=/usr/local/llvm-bin:$PATH /usr/sbin/akmodsbuild|g' /usr/sbin/akmods
+          
+          chmod +x /usr/sbin/akmods /usr/bin/kmodtool
+          mkdir -p /etc/pki/akmods/certs /etc/pki/akmods/private
+          echo "${{ secrets.MOK_PRIVATE_KEY }}" | base64 -d > /etc/pki/akmods/private/private_key.priv
+          echo "${{ secrets.MOK_PUBLIC_DER }}" | base64 -d > /etc/pki/akmods/certs/public_key.der
+          chmod 0600 /etc/pki/akmods/private/private_key.priv
+          akmods --force --kernels "${{ steps.kernel.outputs.kernel_ver }}"
+      - name: Publish Micro-Container OCI
+        run: |
+          dnf install -y buildah
+          export STORAGE_DRIVER=vfs
+          export BUILDAH_ISOLATION=chroot
+          buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+          ctr=$(buildah from scratch)
+          buildah copy $ctr /var/cache/akmods/nvidia/*.rpm /
+          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-nvidia:latest" | tr '[:upper:]' '[:lower:]')
+          buildah commit $ctr $IMAGE_LOWER
+          buildah push $IMAGE_LOWER

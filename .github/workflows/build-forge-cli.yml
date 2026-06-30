@@ -1,0 +1,64 @@
+name: Ermete Forge CLI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'specs/ermete-starship/**'
+      - '.github/workflows/build-forge-cli.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+env:
+  REGISTRY: ghcr.io
+  FEDORA_VERSION: 43
+
+jobs:
+  build-starship:
+    name: 🚀 Build Starship
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: registry.fedoraproject.org/fedora:43
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Calculate Hash
+        id: hash
+        run: echo "hash=${{ hashFiles('specs/ermete-starship/**', 'config/rpmmacros') }}" >> $GITHUB_OUTPUT
+      - name: Cache RPMs
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /github/home/rpmbuild/RPMS/
+          key: rpm-starship-${{ steps.hash.outputs.hash }}
+      - name: Cache Cargo Registry
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: /root/.cargo/registry
+          key: cargo-registry-starship-${{ steps.hash.outputs.hash }}
+          restore-keys: cargo-registry-starship-
+      - name: Install Dependencies and Build
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          dnf install -y rpm-build rpmdevtools gcc gcc-c++ cargo rust cmake mold tar xz curl pkgconf-pkg-config zlib-devel openssl-devel
+          cp config/rpmmacros ~/.rpmmacros
+          rpmdev-setuptree
+          spectool -g -R specs/ermete-starship/ermete-starship.spec
+          dnf builddep -y specs/ermete-starship/ermete-starship.spec
+          rpmbuild -bb specs/ermete-starship/ermete-starship.spec
+      - name: Publish Micro-Container OCI
+        run: |
+          dnf install -y buildah
+          export STORAGE_DRIVER=vfs
+          export BUILDAH_ISOLATION=chroot
+          buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+          ctr=$(buildah from scratch)
+          buildah copy $ctr /github/home/rpmbuild/RPMS/*/*.rpm /
+          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-starship:latest" | tr '[:upper:]' '[:lower:]')
+          buildah commit $ctr $IMAGE_LOWER
+          buildah push $IMAGE_LOWER

@@ -1,0 +1,177 @@
+name: Ermete Forge Desktop
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'specs/ermete-astal/**'
+      - 'specs/ermete-matugen/**'
+      - 'specs/ermete-bibata/**'
+      - '.github/workflows/build-forge-desktop.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+env:
+  REGISTRY: ghcr.io
+  FEDORA_VERSION: 43
+
+jobs:
+  build-ags:
+    name: 🖥️ Build AGS (Astal Extreme)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: registry.fedoraproject.org/fedora:43
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Calculate Hash
+        id: hash
+        run: echo "hash=${{ hashFiles('specs/ermete-astal/**', 'config/rpmmacros') }}" >> $GITHUB_OUTPUT
+      - name: Cache RPMs
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /github/home/RPMS/
+          key: rpm-ags-${{ steps.hash.outputs.hash }}
+      - name: Install Dependencies and Build Astal
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          dnf install -y rpm-build rpmdevtools meson ninja-build gcc gcc-c++ vala pkgconf-pkg-config
+          cp config/rpmmacros ~/.rpmmacros
+          rpmdev-setuptree
+          
+          # Ordine di dipendenza critico per l'ecosistema Astal (AGS v3)
+          ASTAL_PKGS="appmenu-glib-translator astal-io astal astal-libs astal-gjs astal-gtk4 astal-lua aylurs-gtk-shell2"
+          
+          for pkg in $ASTAL_PKGS; do
+            echo "--- Compiling $pkg ---"
+            if [ -d "specs/ermete-astal/$pkg" ]; then
+              spectool -g -R specs/ermete-astal/$pkg/*.spec
+              dnf builddep -y specs/ermete-astal/$pkg/*.spec
+              rpmbuild -bb specs/ermete-astal/$pkg/*.spec
+              # Installa subito l'RPM buildato perché il pacchetto successivo ne ha bisogno
+              find ~/rpmbuild/RPMS/ -type f -name "*.rpm" | xargs -r dnf install -y
+            else
+              echo "Error: specs/ermete-astal/$pkg not found"
+              exit 1
+            fi
+          done
+          
+          mkdir -p /github/home/RPMS
+          cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
+      - name: Fetch standalone dart-sass
+        run: |
+          mkdir -p /github/home/BIN
+          cd /github/home/BIN
+          curl -sL https://github.com/sass/dart-sass/releases/download/1.101.0/dart-sass-1.101.0-linux-x64.tar.gz -o dart-sass.tar.gz
+          tar -xzf dart-sass.tar.gz
+      - name: Publish Micro-Container OCI
+        run: |
+          dnf install -y buildah
+          export STORAGE_DRIVER=vfs
+          export BUILDAH_ISOLATION=chroot
+          buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+          ctr=$(buildah from scratch)
+          buildah copy $ctr /github/home/RPMS/*.rpm / || true
+          buildah copy $ctr /github/home/BIN/dart-sass /dart-sass || true
+          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-ags:latest" | tr '[:upper:]' '[:lower:]')
+          buildah commit $ctr $IMAGE_LOWER
+          buildah push $IMAGE_LOWER
+  build-matugen:
+    name: 🎨 Build Matugen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: registry.fedoraproject.org/fedora:43
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Calculate Hash
+        id: hash
+        run: echo "hash=${{ hashFiles('specs/ermete-matugen/**', 'config/rpmmacros') }}" >> $GITHUB_OUTPUT
+      - name: Cache RPMs
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /github/home/rpmbuild/RPMS/
+          key: rpm-matugen-${{ steps.hash.outputs.hash }}
+      - name: Cache Cargo Registry
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: /root/.cargo/registry
+          key: cargo-registry-matugen-${{ steps.hash.outputs.hash }}
+          restore-keys: cargo-registry-matugen-
+      - name: Install Dependencies and Build
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          dnf install -y rpm-build rpmdevtools gcc gcc-c++ cargo rust cmake mold tar xz curl pkgconf-pkg-config zlib-devel openssl-devel
+          cp config/rpmmacros ~/.rpmmacros
+          rpmdev-setuptree
+          spectool -g -R specs/ermete-matugen/ermete-matugen.spec
+          dnf builddep -y specs/ermete-matugen/ermete-matugen.spec
+          rpmbuild -bb specs/ermete-matugen/ermete-matugen.spec
+      - name: Publish Micro-Container OCI
+        run: |
+          dnf install -y buildah
+          export STORAGE_DRIVER=vfs
+          export BUILDAH_ISOLATION=chroot
+          buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+          ctr=$(buildah from scratch)
+          buildah copy $ctr /github/home/rpmbuild/RPMS/*/*.rpm /
+          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-matugen:latest" | tr '[:upper:]' '[:lower:]')
+          buildah commit $ctr $IMAGE_LOWER
+          buildah push $IMAGE_LOWER
+  build-bibata:
+    name: 🖱️ Build Bibata
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: registry.fedoraproject.org/fedora:43
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Calculate Hash
+        id: hash
+        run: echo "hash=${{ hashFiles('specs/ermete-bibata/**', 'config/rpmmacros') }}" >> $GITHUB_OUTPUT
+      - name: Cache RPMs
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /github/home/rpmbuild/RPMS/
+          key: rpm-bibata-${{ steps.hash.outputs.hash }}
+      - name: Cache Cargo Registry
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: /root/.cargo/registry
+          key: cargo-registry-bibata-${{ steps.hash.outputs.hash }}
+          restore-keys: cargo-registry-bibata-
+      - name: Install Dependencies and Build
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          dnf install -y rpm-build rpmdevtools gcc gcc-c++ cargo rust cmake mold tar xz curl pkgconf-pkg-config zlib-devel openssl-devel
+          cp config/rpmmacros ~/.rpmmacros
+          rpmdev-setuptree
+          spectool -g -R specs/ermete-bibata/ermete-bibata.spec
+          dnf builddep -y specs/ermete-bibata/ermete-bibata.spec
+          rpmbuild -bb specs/ermete-bibata/ermete-bibata.spec
+      - name: Publish Micro-Container OCI
+        run: |
+          dnf install -y buildah
+          export STORAGE_DRIVER=vfs
+          export BUILDAH_ISOLATION=chroot
+          buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+          ctr=$(buildah from scratch)
+          buildah copy $ctr /github/home/rpmbuild/RPMS/*/*.rpm /
+          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-bibata:latest" | tr '[:upper:]' '[:lower:]')
+          buildah commit $ctr $IMAGE_LOWER
+          buildah push $IMAGE_LOWER
