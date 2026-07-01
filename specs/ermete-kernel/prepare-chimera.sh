@@ -4,11 +4,13 @@
 set -e
 
 WORKSPACE_DIR="$HOME/rpmbuild/BUILD"
+echo ">>> Pulizia profonda del workspace per evitare conflitti con vecchie build..."
+rm -rf "$WORKSPACE_DIR"/*
 mkdir -p "$WORKSPACE_DIR"
 cd "$WORKSPACE_DIR"
 
 echo "========================================================="
-echo " FASE 1: RISOLUZIONE DINAMICA KERNEL UPSTREAM"
+echo " FASE 1: RISOLUZIONE DINAMICA MATRICE KERNEL UPSTREAM"
 echo "========================================================="
 echo ">>> Clonazione repository patch CachyOS..."
 rm -rf /tmp/cachyos-patches
@@ -26,20 +28,40 @@ echo ">>> Clonazione repository patch XanMod..."
 rm -rf /tmp/xanmod-patches
 git clone --depth 1 https://gitlab.com/xanmod/linux-patches.git /tmp/xanmod-patches || true
 
-echo ">>> Clonazione repository patch Zen Kernel..."
-rm -rf /tmp/zen-patches
-git clone --depth 1 -b zen https://github.com/zen-kernel/zen-kernel.git /tmp/zen-patches || true
-
 echo ">>> Clonazione repository patch Liquorix..."
 rm -rf /tmp/liquorix-patches
 git clone --depth 1 https://github.com/damentz/liquorix-package.git /tmp/liquorix-patches
 
-echo ">>> Clonazione repository patch Garuda..."
-rm -rf /tmp/garuda-patches
-git clone --depth 1 https://gitlab.com/garuda-linux/themes-and-settings/settings/garuda-common-settings.git /tmp/garuda-patches
+echo ">>> Calcolo intersezione versioni perfette (Matrice Universale)..."
+CACHY_VERSIONS=$(ls -d /tmp/cachyos-patches/*/all 2>/dev/null | awk -F/ '{print $4}' | sort -V || true)
+TKG_VERSIONS=$(ls -d /tmp/tkg-patches/linux-tkg-patches/* 2>/dev/null | awk -F/ '{print $5}' | sort -V || true)
+XANMOD_VERSIONS=$(ls -d /tmp/xanmod-patches/linux-*-xanmod 2>/dev/null | awk -F- '{print $2}' | sed 's/\.y//' | sort -V || true)
 
-echo ">>> Determinazione della versione Mainline massima supportata da CachyOS..."
-TARGET_KERNEL_VER=$(ls -d /tmp/cachyos-patches/*/all 2>/dev/null | awk -F/ '{print $4}' | sort -V | tail -n 1)
+TARGET_KERNEL_VER=""
+# Cerca la versione più alta che esista sia in CachyOS che in TKG e Xanmod
+for v in $(echo "$CACHY_VERSIONS" | tac); do
+    if echo "$TKG_VERSIONS" | grep -q "^$v$" && echo "$XANMOD_VERSIONS" | grep -q "^$v$"; then
+        TARGET_KERNEL_VER="$v"
+        break
+    fi
+done
+
+# Fallback: Se Xanmod è troppo avanti, cerchiamo tra CachyOS e TKG
+if [ -z "$TARGET_KERNEL_VER" ]; then
+    echo ">>> Xanmod non ha una versione compatibile, cerco intersezione CachyOS + TKG..."
+    for v in $(echo "$CACHY_VERSIONS" | tac); do
+        if echo "$TKG_VERSIONS" | grep -q "^$v$"; then
+            TARGET_KERNEL_VER="$v"
+            break
+        fi
+    done
+fi
+
+# Fallback finale: Solo CachyOS
+if [ -z "$TARGET_KERNEL_VER" ]; then
+    echo ">>> Nessuna intersezione trovata, fallback forzato sull'ultima versione di CachyOS..."
+    TARGET_KERNEL_VER=$(echo "$CACHY_VERSIONS" | tail -n 1)
+fi
 
 if [ -z "$TARGET_KERNEL_VER" ]; then
     echo "ERRORE FATALE: Impossibile determinare la versione CachyOS."
@@ -49,7 +71,7 @@ fi
 echo ">>> MATCH PERFETTO! Costruiremo il kernel Mainline versione: $TARGET_KERNEL_VER"
 
 echo "========================================================="
-echo " FASE 2: FONDAMENTA (Upstream Torvalds)"
+echo " FASE 2: FONDAMENTA E CHIRURGIA PATCH (Upstream Torvalds)"
 echo "========================================================="
 KERNEL_TARBALL="linux-${TARGET_KERNEL_VER}.tar.xz"
 echo ">>> Scaricamento Kernel Upstream Torvalds ($KERNEL_TARBALL)..."
@@ -58,11 +80,8 @@ if [ ! -f "$KERNEL_TARBALL" ]; then
 fi
 
 echo ">>> Estrazione del Kernel..."
-rm -rf "linux-${TARGET_KERNEL_VER}"
 tar -xf "$KERNEL_TARBALL"
 cd "linux-${TARGET_KERNEL_VER}"
-
-CACHY_PATCH_DIR="/tmp/cachyos-patches/$TARGET_KERNEL_VER"
 
 echo ">>> Sincronizzazione dinamica Clear Linux con Kernel $TARGET_KERNEL_VER..."
 pushd /tmp/clearlinux-patches > /dev/null
@@ -76,17 +95,25 @@ else
 fi
 popd > /dev/null
 
-echo ">>> Copia delle patch per validazione Kbuild..."
+echo ">>> Importazione Chirurgica delle Patch (Solo versioni compatibili!)..."
 mkdir -p .patches
-if [ -d "$CACHY_PATCH_DIR" ]; then
-    cp "$CACHY_PATCH_DIR"/*.patch .patches/ || true
-fi
-for repo in xanmod liquorix zen garuda tkg; do
-    if [ -d "/tmp/${repo}-patches" ]; then
-        find "/tmp/${repo}-patches" -name "*.patch" -type f -exec cp {} .patches/ \; || true
-    fi
-done
 
+# 1. CachyOS (Sempre compatibile)
+if [ -d "/tmp/cachyos-patches/$TARGET_KERNEL_VER" ]; then
+    cp "/tmp/cachyos-patches/$TARGET_KERNEL_VER"/*.patch .patches/ || true
+fi
+
+# 2. Linux-TKG (Solo se compatibile)
+if [ -d "/tmp/tkg-patches/linux-tkg-patches/$TARGET_KERNEL_VER" ]; then
+    cp "/tmp/tkg-patches/linux-tkg-patches/$TARGET_KERNEL_VER"/*.patch .patches/ || true
+fi
+
+# 3. XanMod (Solo se compatibile)
+if [ -d "/tmp/xanmod-patches/linux-${TARGET_KERNEL_VER}.y-xanmod" ]; then
+    cp "/tmp/xanmod-patches/linux-${TARGET_KERNEL_VER}.y-xanmod"/*.patch .patches/ || true
+fi
+
+# 4. Clear Linux (Patch specifiche)
 for patch_name in \
     "0001-sched-migrate.patch" \
     "0001-sched-numa-Initialise-numa_migrate_retry.patch" \
@@ -104,7 +131,7 @@ make defconfig
 echo ">>> [BEDROCK] Inizio applicazione matrice universale Kbuild per gli 8 Kernel..."
 for patch in .patches/*.patch; do
     if [ ! -f "$patch" ]; then continue; fi
-    echo "-> Test di compatibilità per $(basename $patch)..."
+    echo "-> Test di compatibilità per $(basename "$patch")..."
     
     if patch -p1 -F 2 --force --dry-run --silent < "$patch"; then
         patch -p1 -F 2 --force < "$patch" > /dev/null || true
@@ -178,7 +205,7 @@ echo "========================================================="
 make olddefconfig
 
 echo ">>> Generazione ~/.rpmmacros globale per la compilazione..."
-cat $GITHUB_WORKSPACE/config/rpmmacros > ~/.rpmmacros
+cat "$GITHUB_WORKSPACE/config/rpmmacros" > ~/.rpmmacros
 cat << 'MCR' >> ~/.rpmmacros
 %_with_vanilla 1
 %buildid .chimera
