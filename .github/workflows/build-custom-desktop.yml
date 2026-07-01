@@ -84,10 +84,10 @@ jobs:
                 buildah copy $ctr /github/home/RPMS/${pkg}*.rpm / || true
             fi
             
-            IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository }}/${pkg}:latest" | tr '[:upper:]' '[:lower:]')
+            IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-${pkg}:latest" | tr '[:upper:]' '[:lower:]')
             # Correggo il target name per aylurs-gtk-shell per allinearlo alla direttiva del Containerfile
             if [[ "$pkg" == "aylurs-gtk-shell2" ]]; then
-                IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository }}/aylurs-gtk-shell:latest" | tr '[:upper:]' '[:lower:]')
+                IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-aylurs-gtk-shell:latest" | tr '[:upper:]' '[:lower:]')
             fi
             
             buildah commit $ctr $IMAGE_LOWER
@@ -95,7 +95,7 @@ jobs:
             
             # Il Containerfile richiede anche esplicitamente 'aylurs-gtk-shell2:latest'. Duplichiamo il tag.
             if [[ "$pkg" == "aylurs-gtk-shell2" ]]; then
-                IMAGE_LOWER2=$(echo "${{ env.REGISTRY }}/${{ github.repository }}/aylurs-gtk-shell2:latest" | tr '[:upper:]' '[:lower:]')
+                IMAGE_LOWER2=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-aylurs-gtk-shell2:latest" | tr '[:upper:]' '[:lower:]')
                 buildah commit $ctr $IMAGE_LOWER2
                 buildah push $IMAGE_LOWER2
             fi
@@ -144,7 +144,7 @@ jobs:
           buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
           ctr=$(buildah from scratch)
           buildah copy $ctr /github/home/rpmbuild/RPMS/*/*.rpm /
-          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository }}/ermete-matugen:latest" | tr '[:upper:]' '[:lower:]')
+          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-matugen:latest" | tr '[:upper:]' '[:lower:]')
           buildah commit $ctr $IMAGE_LOWER
           buildah push $IMAGE_LOWER
   build-bibata:
@@ -191,6 +191,6 @@ jobs:
           buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
           ctr=$(buildah from scratch)
           buildah copy $ctr /github/home/rpmbuild/RPMS/*/*.rpm /
-          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository }}/ermete-bibata:latest" | tr '[:upper:]' '[:lower:]')
+          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-bibata:latest" | tr '[:upper:]' '[:lower:]')
           buildah commit $ctr $IMAGE_LOWER
           buildah push $IMAGE_LOWER
