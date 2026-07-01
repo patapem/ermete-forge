@@ -42,6 +42,7 @@ cp -a %{_sourcedir}/* %{buildroot}/
 /usr/share/pixmaps/*
 /usr/share/plymouth/themes/spinner/watermark.png
 /usr/share/polkit-1/rules.d/*
+/usr/lib/systemd/system/bootc-fetch-apply-updates.service.d/override.conf
 
 %changelog
 * Wed Jul 01 2026 Ermete Forge <forge@ermete.os> - 1.0.0-1
