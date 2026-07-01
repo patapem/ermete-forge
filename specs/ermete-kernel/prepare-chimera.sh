@@ -123,10 +123,10 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
         # Livello 2: Fuzz 3 (Estremo)
         echo "   [WARNING] Fallito Fuzz 0. Tento Fuzz 3..."
         
-        # [KCONFIG/MAKEFILE SHIELD] Fuzz 3 su Kconfig/Makefile è matematicamente distruttivo.
-        # Corrompe la sintassi (es. "choice member must be bool") eludendo l'AST di Clang.
-        if grep -qE '^\+\+\+ b/.*(Kconfig|Makefile)' "$patch"; then
-             echo "   [SKIP] La patch tocca Kconfig/Makefile. Applicare con Fuzz 3 corromperebbe la build. Patch scartata."
+        # [STRUCTURAL SHIELD] Fuzz 3 su Kconfig/Makefile/.tbl è matematicamente distruttivo.
+        # Corrompe la sintassi (es. "choice member must be bool" o syscall duplicati).
+        if grep -qE '^\+\+\+ b/.*(Kconfig|Makefile|\.tbl)' "$patch"; then
+             echo "   [SKIP] La patch tocca Kconfig/Makefile/.tbl. Applicare con Fuzz 3 corromperebbe la build. Patch scartata."
         elif patch -p1 -F 3 --force --dry-run --silent < "$patch"; then
             patch -p1 -F 3 --force < "$patch" > /dev/null || true
             
@@ -188,6 +188,9 @@ else
     echo ">>> ATTENZIONE: Nessun commit specifico trovato per $KERNEL_VER. Utilizzo l'head di main."
 fi
 popd > /dev/null
+
+echo ">>> Pulizia patch obsolete (ntsync è upstream in 6.14)..."
+rm -f SOURCES/*ntsync*.patch || true
 
 echo ">>> Aggiunta patch chirurgiche Clear Linux..."
 for patch_name in \
