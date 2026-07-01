@@ -1,5 +1,6 @@
 #!/bin/bash
 PKG=$1
+BASE_DIR="$(dirname "$0")/.."
 echo "--- Applicazione Quirks per $PKG ---"
 
 # Disabilitazione Globale LTO / MOLD per pacchetti non compatibili
@@ -25,14 +26,14 @@ case "$PKG" in
         if [ "$PKG" == "bpftool" ]; then
             echo "Applicazione Quirk Chirurgico per BPFTOOL tramite patch..."
             echo "%_without_clang 1" >> ~/.rpmmacros
-            cp $GITHUB_WORKSPACE/specs/bpftool/bpftool-vprintk.patch ~/rpmbuild/SOURCES/
-            echo "%__spec_prep_post %{___build_post}" >> ~/.rpmmacros
+            cp "$BASE_DIR/specs/bpftool/bpftool-vprintk.patch" ~/rpmbuild/SOURCES/
+            echo "%__spec_prep_post %{___build_post} \\" >> ~/.rpmmacros
             echo "patch -p1 < %{_sourcedir}/bpftool-vprintk.patch || true" >> ~/.rpmmacros
         fi
         ;;
     bat)
-        echo "Applicazione Quirk Chirurgico per BAT (Risoluzione hash multipli in installazione)..."
-        patch -p1 ~/rpmbuild/SPECS/*.spec < $GITHUB_WORKSPACE/specs/bat/bat-spec.patch || true
+        # Bat is now statically built via ermete-bat spec, no quirks needed here.
+        echo "Nessun quirk dinamico necessario per BAT, usa spec canonico in ermete-bat."
         ;;
     *)
         echo "Nessun quirk necessario per $PKG."
