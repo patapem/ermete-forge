@@ -1,0 +1,48 @@
+Name:           ermete-base-config
+Version:        1.0.0
+Release:        1%{?dist}
+Summary:        Ermete OS Base Configuration (NVIDIA, Systemd, Branding, GPG)
+
+License:        MIT
+URL:            https://github.com/patapem/ermete-forge
+BuildArch:      noarch
+
+%description
+This package provides the foundational configuration for Ermete Base.
+It includes NVIDIA sleep scripts, Dracut configurations, modprobe rules,
+Systemd presets, custom Plymouth/GDM branding, Polkit rules, and GPG keys.
+
+%prep
+# No extraction needed, files are injected in install phase.
+
+%build
+# Nothing to build
+
+%install
+mkdir -p %{buildroot}
+cp -a %{_sourcedir}/* %{buildroot}/
+
+%files
+/etc/pki/rpm-gpg/*
+/etc/selinux/config
+/etc/yum.repos.d/*
+/usr/bin/nvidia-sleep.sh
+/usr/lib/fedora-release
+/usr/lib/os-release
+/usr/lib/bootc/kargs.d/01-nvidia.toml
+/usr/lib/dracut/dracut.conf.d/*
+/usr/lib/modprobe.d/*
+/usr/lib/modules-load.d/*
+/usr/lib/systemd/system-preset/*
+/usr/lib/systemd/system-sleep/nvidia
+/usr/lib/systemd/system/nvidia-*
+/usr/lib/systemd/system/scx_loader.service.d/*
+/usr/lib/sysusers.d/*
+/usr/lib/udev/rules.d/*
+/usr/share/pixmaps/*
+/usr/share/plymouth/themes/spinner/watermark.png
+/usr/share/polkit-1/rules.d/*
+
+%changelog
+* Wed Jul 01 2026 Ermete Forge <forge@ermete.os> - 1.0.0-1
+- Initial encapsulation of raw files into RPM for Bedrock logic
