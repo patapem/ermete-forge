@@ -123,10 +123,15 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
         # Livello 2: Fuzz 3 (Estremo)
         echo "   [WARNING] Fallito Fuzz 0. Tento Fuzz 3..."
         
-        # [STRUCTURAL SHIELD] Fuzz 3 su Kconfig/Makefile/.tbl è matematicamente distruttivo.
-        # Corrompe la sintassi (es. "choice member must be bool" o syscall duplicati).
-        if grep -qE '^\+\+\+ b/.*(Kconfig|Makefile|\.tbl)' "$patch"; then
-             echo "   [SKIP] La patch tocca Kconfig/Makefile/.tbl. Applicare con Fuzz 3 corromperebbe la build. Patch scartata."
+        # [THE REAL CAUSE FIX: STRICT AST BOUNDARY]
+        # Fuzz 3 distrugge l'integrità del codice ignorando il contesto. È accettabile SOLO se
+        # possiamo validare matematicamente il risultato con Clang (AST). Poiché Clang può validare
+        # isolatamente solo i file .c (i file .h o config falliscono o sfuggono), autorizziamo
+        # Fuzz 3 SOLO se la patch tocca *esclusivamente* file .c.
+        NON_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep -v '\.c$' || true)
+        
+        if [ -n "$NON_C_FILES" ]; then
+             echo "   [SKIP] La patch tocca file non-C. Impossibile validare con AST. Fuzz 3 vietato. Scartata."
         elif patch -p1 -F 3 --force --dry-run --silent < "$patch"; then
             patch -p1 -F 3 --force < "$patch" > /dev/null || true
             
