@@ -39,3 +39,13 @@ case "$PKG" in
         echo "Nessun quirk necessario per $PKG."
         ;;
 esac
+
+# Applicazione universale Rust Bedrock Fix via macro injection
+echo "Applicazione Quirk Chirurgico per Rust tramite patch..."
+cp "$BASE_DIR/specs/rust-quirks/rust-bedrock.patch" ~/rpmbuild/SOURCES/ || true
+if grep -q "%__spec_prep_post" ~/.rpmmacros; then
+    echo "patch -p0 -d /usr/lib/rpm/macros.d < %{_sourcedir}/rust-bedrock.patch || true" >> ~/.rpmmacros
+else
+    echo "%__spec_prep_post %{___build_post} \\" >> ~/.rpmmacros
+    echo "patch -p0 -d /usr/lib/rpm/macros.d < %{_sourcedir}/rust-bedrock.patch || true" >> ~/.rpmmacros
+fi

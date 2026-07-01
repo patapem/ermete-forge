@@ -39,21 +39,11 @@ for PKG in $PACKAGES; do
         continue
     fi
     
-    # BEDROCK FIX: DNF5 ha un bug su Fedora 43 con le dipendenze dinamiche degli SRPM.
-    # Dobbiamo prima estrarre il .spec e far leggere a dnf il file spec vero e proprio!
-    rpm -ivh *.src.rpm || true
-    
-    if ! dnf builddep -y ~/rpmbuild/SPECS/*.spec; then
+    if ! dnf builddep -y *.src.rpm; then
         echo "!!! ERRORE RISOLUZIONE DIPENDENZE: $PKG !!!"
         echo "[FAILED BUILDDEP] $PKG" >> /work/output/build_quirks_results.txt
         continue
     fi
-    
-    # BEDROCK HACK per README rust mancanti
-    find /usr/share/cargo/registry/ -maxdepth 1 -mindepth 1 -type d -exec touch {}/README.md \; || true
-    
-    # BEDROCK HACK: Rimozione --locked per compatibilità RPM Rust
-    sed -i 's/--locked//g' /usr/lib/rpm/macros.d/macros.cargo || true
 
     if ! rpmbuild --rebuild --nocheck *.src.rpm; then
         if ls ~/rpmbuild/SRPMS/*.buildreqs.nosrc.rpm >/dev/null 2>&1; then

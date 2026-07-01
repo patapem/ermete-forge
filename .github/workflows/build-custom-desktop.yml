@@ -359,6 +359,62 @@ jobs:
           IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-astal-lua:latest" | tr '[:upper:]' '[:lower:]')
           buildah commit $ctr $IMAGE_LOWER
           buildah push $IMAGE_LOWER
+  build-aylurs-gtk-shell:
+    name: 🖥️ Build AGS (aylurs-gtk-shell)
+    runs-on: ubuntu-latest
+    needs: build-astal-lua
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: registry.fedoraproject.org/fedora:43
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Previous RPMs
+        uses: actions/download-artifact@v4
+        with:
+          path: /github/home/PREV_RPMS/
+          pattern: rpm-ags-*
+          merge-multiple: true
+      - name: Install Dependencies and Build
+        run: |
+          dnf install -y rpm-build rpmdevtools meson ninja-build gcc gcc-c++ vala pkgconf-pkg-config
+          cp config/rpmmacros ~/.rpmmacros
+          rpmdev-setuptree
+          find /github/home/PREV_RPMS/ -type f -name "*.rpm" | xargs -r dnf install -y
+          if [ -d "specs/ermete-astal/aylurs-gtk-shell" ]; then
+            spectool -g -R specs/ermete-astal/aylurs-gtk-shell/*.spec
+            dnf builddep -y specs/ermete-astal/aylurs-gtk-shell/*.spec
+            rpmbuild -bb --nocheck specs/ermete-astal/aylurs-gtk-shell/*.spec
+          else
+            echo "Warning: specs/ermete-astal/aylurs-gtk-shell not found, skipping build"
+            mkdir -p /github/home/RPMS
+            exit 0
+          fi
+          mkdir -p /github/home/RPMS
+          cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
+      - name: Upload RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-ags-aylurs-gtk-shell
+          path: /github/home/RPMS/*.rpm
+      - name: Publish Micro-Container OCI
+        run: |
+          dnf install -y buildah
+          export STORAGE_DRIVER=vfs
+          export BUILDAH_ISOLATION=chroot
+          buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+          ctr=$(buildah from scratch)
+          # Solo procedi se ci sono RPM
+          if ls /github/home/RPMS/aylurs-gtk-shell*.rpm >/dev/null 2>&1; then
+            buildah copy $ctr /github/home/RPMS/aylurs-gtk-shell*.rpm /
+            IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-aylurs-gtk-shell:latest" | tr '[:upper:]' '[:lower:]')
+            buildah commit $ctr $IMAGE_LOWER
+            buildah push $IMAGE_LOWER
+          else
+            echo "Nessun RPM prodotto per aylurs-gtk-shell, skip publish"
+          fi
   build-aylurs-gtk-shell2:
     name: 🖥️ Build AGS (aylurs-gtk-shell2)
     runs-on: ubuntu-latest
@@ -405,17 +461,14 @@ jobs:
           export BUILDAH_ISOLATION=chroot
           buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
           ctr=$(buildah from scratch)
-          buildah copy $ctr /github/home/RPMS/aylurs-gtk-shell*.rpm /
-          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-aylurs-gtk-shell:latest" | tr '[:upper:]' '[:lower:]')
+          buildah copy $ctr /github/home/RPMS/aylurs-gtk-shell2*.rpm /
+          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-aylurs-gtk-shell2:latest" | tr '[:upper:]' '[:lower:]')
           buildah commit $ctr $IMAGE_LOWER
           buildah push $IMAGE_LOWER
-          IMAGE_LOWER2=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-aylurs-gtk-shell2:latest" | tr '[:upper:]' '[:lower:]')
-          buildah commit $ctr $IMAGE_LOWER2
-          buildah push $IMAGE_LOWER2
   build-hyprpanel:
     name: 🖥️ Build AGS (hyprpanel)
     runs-on: ubuntu-latest
-    needs: build-aylurs-gtk-shell2
+    needs: [build-aylurs-gtk-shell, build-aylurs-gtk-shell2]
     permissions:
       contents: read
       packages: write
