@@ -28,7 +28,7 @@ case "$PKG" in
             echo "%_without_clang 1" >> ~/.rpmmacros
             cp "$BASE_DIR/specs/bpftool/bpftool-vprintk.patch" ~/rpmbuild/SOURCES/
             echo "%__spec_prep_post %{___build_post} \\" >> ~/.rpmmacros
-            echo "patch -p1 < %{_sourcedir}/bpftool-vprintk.patch || true" >> ~/.rpmmacros
+            echo "patch -p0 < %{_sourcedir}/bpftool-vprintk.patch" >> ~/.rpmmacros
         fi
         ;;
     bat)
@@ -37,7 +37,7 @@ case "$PKG" in
         ;;
     nushell)
         echo "Applicazione Quirk Chirurgico per NUSHELL (Rimozione mimalloc incompatibile con LTO)..."
-        patch -p1 ~/rpmbuild/SPECS/nushell.spec < $BASE_DIR/specs/nushell/nushell-mimalloc.patch || true
+        (cd ~/rpmbuild/SPECS && patch -p0 < "$BASE_DIR/specs/nushell/nushell-mimalloc.patch")
         ;;
     *)
         echo "Nessun quirk necessario per $PKG."

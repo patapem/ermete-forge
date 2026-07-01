@@ -4,7 +4,7 @@
  
  %prep
  %autosetup -p1
-+sed -i 's/mimalloc//g' Cargo.toml || true
++grep -q mimalloc Cargo.toml && sed -i 's/mimalloc//g' Cargo.toml || exit 1
  %cargo_prep
  
  # borrowed from ruff
