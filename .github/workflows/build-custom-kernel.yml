@@ -8,6 +8,8 @@ on:
       - '.github/workflows/build-custom-kernel.yml'
       - '!**/*.md'
       - '!**/*.txt'
+  schedule:
+    - cron: '0 3 * * 1' # Ogni Lunedì alle 03:00 AM UTC
   workflow_dispatch:
 
 env:
@@ -50,7 +52,7 @@ jobs:
         id: idempotency
         run: |
           dnf install -y skopeo
-          FINGERPRINT=$(find ~/rpmbuild/BUILD/linux-* -name '*.patch' -type f -exec sha256sum {} + | sort | sha256sum | awk '{print $1}' || echo "new_build")
+          FINGERPRINT=$(find ~/rpmbuild/BUILD/ -type f \( -name '*.patch' -o -name '.kernel_version' \) -exec sha256sum {} + | sort | sha256sum | awk '{print $1}' || echo "new_build")
           echo "FINGERPRINT=$FINGERPRINT" >> $GITHUB_ENV
           
           IMAGE="${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-kernel:$FINGERPRINT"

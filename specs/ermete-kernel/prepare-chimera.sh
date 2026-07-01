@@ -70,15 +70,25 @@ echo ">>> MATCH PERFETTO! Costruiremo il kernel Mainline versione: $TARGET_KERNE
 echo "========================================================="
 echo " FASE 2: FONDAMENTA E CHIRURGIA PATCH (Upstream Torvalds)"
 echo "========================================================="
-KERNEL_TARBALL="linux-${TARGET_KERNEL_VER}.tar.xz"
-echo ">>> Scaricamento Kernel Upstream Torvalds ($KERNEL_TARBALL)..."
-if [ ! -f "$KERNEL_TARBALL" ]; then
-    wget -q "https://cdn.kernel.org/pub/linux/kernel/v6.x/$KERNEL_TARBALL"
+echo ">>> Determinazione ultima release stabile per Torvalds $TARGET_KERNEL_VER..."
+KERNEL_LATEST_TARBALL=$(curl -s https://cdn.kernel.org/pub/linux/kernel/v6.x/ | grep -Eo "linux-${TARGET_KERNEL_VER}\.[0-9]+\.tar\.xz" | sort -V | tail -n 1 || true)
+if [ -z "$KERNEL_LATEST_TARBALL" ]; then
+    KERNEL_LATEST_TARBALL="linux-${TARGET_KERNEL_VER}.tar.xz"
+fi
+KERNEL_EXTRACT_DIR="${KERNEL_LATEST_TARBALL%.tar.xz}"
+
+echo ">>> Scaricamento Kernel Upstream Torvalds ($KERNEL_LATEST_TARBALL)..."
+if [ ! -f "$KERNEL_LATEST_TARBALL" ]; then
+    wget -q "https://cdn.kernel.org/pub/linux/kernel/v6.x/$KERNEL_LATEST_TARBALL"
 fi
 
 echo ">>> Estrazione del Kernel..."
-tar -xf "$KERNEL_TARBALL"
-cd "linux-${TARGET_KERNEL_VER}"
+tar -xf "$KERNEL_LATEST_TARBALL"
+cd "$KERNEL_EXTRACT_DIR"
+
+# Salviamo la versione esatta per l'idempotency check nella Action
+echo "$KERNEL_EXTRACT_DIR" > .kernel_version
+
 
 mkdir -p .patches
 
@@ -99,7 +109,7 @@ for patch_name in \
     "0002-sched-core-add-some-branch-hints-based-on-gcov-analy.patch" \
     "0170-sched-Add-unlikey-branch-hints-to-several-system-cal.patch"; do
     if [ -f "$patch_name" ]; then
-        cp "$patch_name" "$WORKSPACE_DIR/linux-${TARGET_KERNEL_VER}/.patches/" || true
+        cp "$patch_name" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/" || true
     fi
 done
 popd > /dev/null
@@ -113,9 +123,9 @@ if [ -d "/tmp/xanmod-patches" ]; then
         git checkout -q "$XANMOD_COMMIT"
     fi
     if [ -d "linux-${TARGET_KERNEL_VER}.y-xanmod" ]; then
-        cp linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch "$WORKSPACE_DIR/linux-${TARGET_KERNEL_VER}/.patches/" || true
+        cp linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/" || true
     elif [ -d "eol/linux-${TARGET_KERNEL_VER}.y-xanmod" ]; then
-        cp eol/linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch "$WORKSPACE_DIR/linux-${TARGET_KERNEL_VER}/.patches/" || true
+        cp eol/linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/" || true
     fi
     popd > /dev/null
 fi
@@ -128,7 +138,7 @@ if [ -d "/tmp/liquorix-patches" ]; then
         echo "    Allineamento Liquorix al branch: ${TARGET_KERNEL_VER}/master"
         git checkout -q "${TARGET_KERNEL_VER}/master"
         # Liquorix patches (contains Zen)
-        cp linux-liquorix/debian/patches/zen/*.patch "$WORKSPACE_DIR/linux-${TARGET_KERNEL_VER}/.patches/" || true
+        cp linux-liquorix/debian/patches/zen/*.patch "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/" || true
     else
         echo "    ATTENZIONE: Branch ${TARGET_KERNEL_VER}/master non trovato in Liquorix."
     fi
