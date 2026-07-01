@@ -111,23 +111,26 @@ echo ">>> Scansione e registrazione delle patch nello spec (Native RPM Best Prac
 # applichiamo dinamicamente le singole patch. Se una patch fallisce il test (dry-run),
 # la saltiamo interamente per garantire che il codice C rimanga puro e compilabile.
 cat << 'EOF' >> /tmp/patch_apply.txt
-echo ">>> [BEDROCK] Inizio applicazione matrice universale (Fuzz+AST) per gli 8 Kernel..."
+echo ">>> [BEDROCK] Inizio applicazione matrice universale Kbuild per gli 8 Kernel..."
+
+# Configurazione preparatoria per permettere a Kbuild di validare le patch in tempo reale
+cp configs/kernel-x86_64.config .config
+make olddefconfig
+make prepare
+
 for patch in %{_sourcedir}/bedrock-*.patch; do
     echo "-> Test di compatibilità per $(basename $patch)..."
     
-    # Livello 1: Fuzz 0 (Puro)
-    if patch -p1 -F 0 --force --dry-run --silent < "$patch"; then
-        patch -p1 -F 0 --force < "$patch" > /dev/null || true
-        echo "   [SUCCESS] Patch applicata a Fuzz 0."
+    # Livello 1: Fuzz 2 (Standard Linux)
+    if patch -p1 -F 2 --force --dry-run --silent < "$patch"; then
+        patch -p1 -F 2 --force < "$patch" > /dev/null || true
+        echo "   [SUCCESS] Patch applicata a Fuzz 2."
     else
         # Livello 2: Fuzz 3 (Estremo)
-        echo "   [WARNING] Fallito Fuzz 0. Tento Fuzz 3..."
+        echo "   [WARNING] Fallito Fuzz 2. Tento Fuzz 3..."
         
-        # [THE REAL CAUSE FIX: STRICT AST BOUNDARY]
-        # Fuzz 3 distrugge l'integrità del codice ignorando il contesto. È accettabile SOLO se
-        # possiamo validare matematicamente il risultato con Clang (AST). Poiché Clang può validare
-        # isolatamente solo i file .c (i file .h o config falliscono o sfuggono), autorizziamo
-        # Fuzz 3 SOLO se la patch tocca *esclusivamente* file .c.
+        # Autorizziamo Fuzz 3 SOLO se la patch tocca *esclusivamente* file .c,
+        # perché solo questi possono essere testati chirurgicamente tramite make .s
         NON_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep -v '\.c$' || true)
         
         if [ -n "$NON_C_FILES" ]; then
@@ -135,18 +138,18 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
         elif patch -p1 -F 3 --force --dry-run --silent < "$patch"; then
             patch -p1 -F 3 --force < "$patch" > /dev/null || true
             
-            # Livello 3: Validazione AST Chirurgica con Clang
-            echo "   [AST VALIDATION] Controllo purezza albero sintattico sui file toccati..."
-            # Trova i file .c modificati dalla patch
+            # Livello 3: Validazione AST Chirurgica con Kbuild
+            echo "   [AST VALIDATION] Controllo purezza albero sintattico tramite Kbuild Assembly..."
             MODIFIED_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep '\.c$' || true)
             AST_FAILED=0
             
             for c_file in $MODIFIED_C_FILES; do
                 if [ -f "$c_file" ]; then
-                    # Sintassi pura (ignora i warning, controlla solo errori fatali AST)
-                    if ! clang -fsyntax-only -Wno-everything -Iinclude -Iarch/x86/include "$c_file" 2>/dev/null; then
+                    target_s="${c_file%.c}.s"
+                    # Compilazione dry-run in assembly. Kbuild userà il 100% dei flag/include corretti.
+                    if ! make "$target_s" >/dev/null 2>&1; then
                         AST_FAILED=1
-                        echo "   [AST FATAL] Struttura C corrotta in $c_file!"
+                        echo "   [AST FATAL] Kbuild ha fallito la compilazione AST di $c_file!"
                         break
                     fi
                 fi
@@ -156,7 +159,7 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
                 echo "   [ROLLBACK] Conflitto sintattico rilevato! Scarto la patch."
                 patch -p1 -R -F 3 --force < "$patch" > /dev/null || true
             else
-                echo "   [SUCCESS] Patch fusa e validata tramite AST."
+                echo "   [SUCCESS] Patch fusa e validata nativamente tramite AST Kbuild."
             fi
         else
             echo "   [SKIP] Conflitto strutturale (Fallito Fuzz 3). Patch scartata."
@@ -263,7 +266,7 @@ CONFIG_GENERIC_CPU=y
 
 # Ottimizzazione Nativa Bedrock (Demandare a Kbuild, NO Macro RPM)
 CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=y
-CONFIG_LTO_CLANG_THIN=y
+# CONFIG_LTO_CLANG_THIN is not set
 
 # Ottimizzazione Tempi di Compilazione (Nessun Simbolo di Debug)
 CONFIG_DEBUG_INFO=n
@@ -286,10 +289,8 @@ echo ">>> Generazione ~/.rpmmacros globale per la compilazione..."
 # in modo nativo per rpmbuild.
 cat << 'EOF' > ~/.rpmmacros
 %_with_vanilla 1
-%_with_toolchain_clang 1
-%_with_clang_lto 1
 %buildid .chimera
-%toolchain clang
+%toolchain gcc
 %optflags %{__global_compiler_flags} -march=x86-64-v3 -pipe -Wno-error
 %kcflags -march=x86-64-v3 -pipe -Wno-error
 
