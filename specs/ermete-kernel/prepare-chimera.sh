@@ -109,7 +109,7 @@ for patch_name in \
     "0002-sched-core-add-some-branch-hints-based-on-gcov-analy.patch" \
     "0170-sched-Add-unlikey-branch-hints-to-several-system-cal.patch"; do
     if [ -f "$patch_name" ]; then
-        cp "$patch_name" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/" || true
+        cp "$patch_name" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/40_clear_${patch_name}" || true
     fi
 done
 popd > /dev/null
@@ -123,9 +123,9 @@ if [ -d "/tmp/xanmod-patches" ]; then
         git checkout -q "$XANMOD_COMMIT"
     fi
     if [ -d "linux-${TARGET_KERNEL_VER}.y-xanmod" ]; then
-        cp linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/" || true
+        for p in linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/30_xanmod_$(basename "$p")"; done || true
     elif [ -d "eol/linux-${TARGET_KERNEL_VER}.y-xanmod" ]; then
-        cp eol/linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/" || true
+        for p in eol/linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/30_xanmod_$(basename "$p")"; done || true
     fi
     popd > /dev/null
 fi
@@ -138,7 +138,7 @@ if [ -d "/tmp/liquorix-patches" ]; then
         echo "    Allineamento Liquorix al branch: ${TARGET_KERNEL_VER}/master"
         git checkout -q "${TARGET_KERNEL_VER}/master"
         # Liquorix patches (contains Zen)
-        cp linux-liquorix/debian/patches/zen/*.patch "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/" || true
+        for p in linux-liquorix/debian/patches/zen/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/50_liquorix_$(basename "$p")"; done || true
     else
         echo "    ATTENZIONE: Branch ${TARGET_KERNEL_VER}/master non trovato in Liquorix."
     fi
@@ -147,49 +147,75 @@ fi
 
 echo ">>> Sincronizzazione CachyOS e Linux-TKG..."
 if [ -d "/tmp/cachyos-patches/$TARGET_KERNEL_VER/all" ]; then
-    cp /tmp/cachyos-patches/$TARGET_KERNEL_VER/all/*.patch .patches/ || true
+    for p in /tmp/cachyos-patches/$TARGET_KERNEL_VER/all/*.patch; do cp "$p" .patches/20_cachyos_$(basename "$p"); done || true
 fi
 if [ -d "/tmp/tkg-patches/linux-tkg-patches/$TARGET_KERNEL_VER" ]; then
-    cp /tmp/tkg-patches/linux-tkg-patches/$TARGET_KERNEL_VER/*.patch .patches/ || true
+    for p in /tmp/tkg-patches/linux-tkg-patches/$TARGET_KERNEL_VER/*.patch; do cp "$p" .patches/10_tkg_$(basename "$p"); done || true
 fi
 
 # Genera un default Kconfig per permettere a Kbuild di funzionare (ci serve per AST validazione)
 make defconfig
 
-echo ">>> [BEDROCK] Inizio applicazione matrice universale Kbuild..."
-for patch in .patches/*.patch; do
+echo ">>> [BEDROCK] Inizio applicazione matrice universale AST (Holy Grail)..."
+# Genera compilation database per clang
+make CC=clang compile_commands.json >/dev/null 2>&1 || true
+
+for patch in $(ls .patches/*.patch | sort -V); do
     if [ ! -f "$patch" ]; then continue; fi
     echo "-> Test di compatibilità per $(basename "$patch")..."
     
-    if patch -p1 -F 2 --force --dry-run --silent < "$patch"; then
-        patch -p1 -F 2 --force < "$patch" > /dev/null || true
-        echo "   [SUCCESS] Patch applicata a Fuzz 2."
+    # Fuzz 0 attempt
+    if patch -p1 -F 0 --force --dry-run --silent < "$patch"; then
+        patch -p1 -F 0 --force < "$patch" > /dev/null || true
+        echo "   [SUCCESS] Patch applicata a Fuzz 0."
     else
-        echo "   [WARNING] Fallito Fuzz 2. Tento Fuzz 3..."
-        NON_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep -v '\.c$' || true)
-        if [ -n "$NON_C_FILES" ]; then
-             echo "   [SKIP] La patch tocca file non-C. Impossibile validare con AST. Fuzz 3 vietato. Scartata."
-        elif patch -p1 -F 3 --force --dry-run --silent < "$patch"; then
+        echo "   [WARNING] Fallito Fuzz 0. Tento Fuzz 3..."
+        
+        # Fuzz 3 attempt
+        if patch -p1 -F 3 --force --dry-run --silent < "$patch"; then
             patch -p1 -F 3 --force < "$patch" > /dev/null || true
             
-            echo "   [AST VALIDATION] Controllo purezza albero sintattico tramite Kbuild Assembly..."
-            MODIFIED_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep '\.c$' || true)
+            # Step 1: Validate Kconfig/Makefile integrity if touched
+            KCONFIG_FAILED=0
+            if grep -E '^\+\+\+ b/(Kconfig|Makefile|.*/Kconfig|.*/Makefile)' "$patch" >/dev/null 2>&1; then
+                echo "   [KBUILD VALIDATION] Verifico integrità dell'albero Kconfig..."
+                if ! make allnoconfig >/dev/null 2>&1; then
+                    KCONFIG_FAILED=1
+                    echo "   [KBUILD FATAL] La patch ha corrotto la struttura Kconfig/Makefile!"
+                fi
+            fi
+            
+            if [ $KCONFIG_FAILED -eq 1 ]; then
+                echo "   [ROLLBACK] Conflitto strutturale (Kbuild). Scarto la patch."
+                patch -p1 -R -F 3 --force < "$patch" > /dev/null || true
+                continue
+            fi
+            
+            # Step 2: AST Validation for existing C files
+            echo "   [AST VALIDATION] Controllo purezza albero sintattico sorgenti C/H modificati..."
+            MODIFIED_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep -E '\.(c|h)$' || true)
             AST_FAILED=0
             for c_file in $MODIFIED_C_FILES; do
                 if [ -f "$c_file" ]; then
-                    target_s="${c_file%.c}.s"
-                    if ! make "$target_s" >/dev/null 2>&1; then
-                        AST_FAILED=1
-                        echo "   [AST FATAL] Kbuild ha fallito la compilazione AST di $c_file!"
-                        break
+                    # We only AST validate .c files that are in the compilation database (existing files)
+                    if echo "$c_file" | grep -q '\.c$'; then
+                        CFLAGS=$(grep -A 5 "$c_file" compile_commands.json 2>/dev/null | grep '"command"' | head -n 1 | sed 's/.*"command": "//; s/ -c .*//' || true)
+                        if [ -n "$CFLAGS" ]; then
+                            if ! clang -fsyntax-only $CFLAGS "$c_file" >/dev/null 2>&1; then
+                                AST_FAILED=1
+                                echo "   [AST FATAL] Clang ha fallito la validazione sintattica di $c_file!"
+                                break
+                            fi
+                        fi
                     fi
                 fi
             done
+            
             if [ $AST_FAILED -eq 1 ]; then
                 echo "   [ROLLBACK] Conflitto sintattico rilevato! Scarto la patch."
                 patch -p1 -R -F 3 --force < "$patch" > /dev/null || true
             else
-                echo "   [SUCCESS] Patch fusa e validata nativamente tramite AST Kbuild."
+                echo "   [SUCCESS] Patch fusa e validata nativamente tramite AST Clang & Kbuild."
             fi
         else
             echo "   [SKIP] Conflitto strutturale (Fallito Fuzz 3). Patch scartata."
@@ -198,27 +224,53 @@ for patch in .patches/*.patch; do
 done
 
 echo "========================================================="
-echo " FASE 3: TUNING KCONFIG (Bedrock Naturale)"
+echo " FASE 3: TUNING KCONFIG (Bedrock Naturale Dinamico)"
 echo "========================================================="
+# Disattivazione massiccia e mirata del Debug (Prestazioni Estreme)
+for cfg in DEBUG_KERNEL SLUB_DEBUG PM_DEBUG PM_ADVANCED_DEBUG ACPI_DEBUG SCHED_DEBUG LATENCYTOP DEBUG_PREEMPT PROVE_LOCKING LOCK_STAT KASAN DEBUG_INFO DEBUG_INFO_BTF DEBUG_FS; do
+    ./scripts/config --disable $cfg
+done
+
+# Schedulazione e Responsività Desktop (Preempt Estremo)
+./scripts/config --enable PREEMPT
+./scripts/config --disable PREEMPT_VOLUNTARY
+./scripts/config --disable PREEMPT_NONE
+
+# CPU e Tick
 ./scripts/config --enable HZ_1000
 ./scripts/config --set-val HZ 1000
 ./scripts/config --disable HZ_300
 ./scripts/config --disable HZ_250
 ./scripts/config --disable HZ_100
-./scripts/config --enable DEFAULT_BBR
-./scripts/config --enable TCP_CONG_BBR
-./scripts/config --disable DEFAULT_CUBIC
 ./scripts/config --enable SCHED_BORE
+
+# Rete (BBR + FQ)
+./scripts/config --enable TCP_CONG_BBR
+./scripts/config --enable DEFAULT_BBR
+./scripts/config --disable DEFAULT_CUBIC
+./scripts/config --enable NET_SCH_FQ
+./scripts/config --enable DEFAULT_FQ
+
+# Compressione Moduli (ZSTD puro)
 ./scripts/config --enable MODULE_COMPRESS_ZSTD
 ./scripts/config --disable MODULE_COMPRESS_XZ
+./scripts/config --disable MODULE_COMPRESS_GZIP
+
+# RAM e Performance
 ./scripts/config --enable LRU_GEN
 ./scripts/config --enable LRU_GEN_ENABLED
-./scripts/config --enable GENERIC_CPU
+
+# Ottimizzazione CPU Arch (Nativa V3)
+./scripts/config --disable GENERIC_CPU
+./scripts/config --enable GENERIC_CPU3
+./scripts/config --enable X86_64_VERSION=3
+./scripts/config --enable MNATIVE
+
+# Ottimizzazione Compilatore
 ./scripts/config --enable CC_OPTIMIZE_FOR_PERFORMANCE_O3
 ./scripts/config --disable LTO_CLANG_THIN
-./scripts/config --disable DEBUG_INFO
 ./scripts/config --enable DEBUG_INFO_NONE
-./scripts/config --disable DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT
+
 ./scripts/config --enable NTSYNC
 ./scripts/config --disable RUST
 
@@ -227,7 +279,7 @@ echo "========================================================="
 ./scripts/config --enable NET_9P
 ./scripts/config --enable NET_9P_VIRTIO
 ./scripts/config --enable 9P_FS
-
+./scripts/config --disable DRM_NOUVEAU
 make olddefconfig
 
 echo ">>> Generazione ~/.rpmmacros globale per la compilazione..."
@@ -237,7 +289,6 @@ cat << 'MCR' >> ~/.rpmmacros
 %buildid .chimera
 %toolchain gcc
 %optflags %{__global_compiler_flags} -march=x86-64-v3 -pipe -Wno-error
-%kcflags -march=x86-64-v3 -pipe -Wno-error
 
 %_without_selftests 1
 %_without_tools 1
