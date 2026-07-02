@@ -49,7 +49,19 @@ jobs:
         id: check_idempotency
         run: |
           dnf install -y dnf5 skopeo jq
-          dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-rawhide.noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-rawhide.noarch.rpm || true
+          cat << 'REPO' > /etc/yum.repos.d/rpmfusion-rawhide.repo
+[rpmfusion-free-rawhide]
+name=RPM Fusion for Fedora Rawhide - Free
+baseurl=http://mirrors.rpmfusion.org/free/fedora/development/rawhide/Everything/$basearch/os/
+enabled=1
+gpgcheck=0
+
+[rpmfusion-nonfree-rawhide]
+name=RPM Fusion for Fedora Rawhide - Nonfree
+baseurl=http://mirrors.rpmfusion.org/nonfree/fedora/development/rawhide/Everything/$basearch/os/
+enabled=1
+gpgcheck=0
+REPO
           IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-rolling-${{ matrix.package }}:latest" | tr '[:upper:]' '[:lower:]')
           
           # Trova versione upstream su Fedora (inclusi RPM Fusion)
@@ -82,7 +94,19 @@ jobs:
           cd ~/rpmbuild/SRPMS
           
           echo "--- Abilitazione RPM Fusion (Rawhide) ---"
-          dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-rawhide.noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-rawhide.noarch.rpm || true
+          cat << 'REPO' > /etc/yum.repos.d/rpmfusion-rawhide.repo
+[rpmfusion-free-rawhide]
+name=RPM Fusion for Fedora Rawhide - Free
+baseurl=http://mirrors.rpmfusion.org/free/fedora/development/rawhide/Everything/$basearch/os/
+enabled=1
+gpgcheck=0
+
+[rpmfusion-nonfree-rawhide]
+name=RPM Fusion for Fedora Rawhide - Nonfree
+baseurl=http://mirrors.rpmfusion.org/nonfree/fedora/development/rawhide/Everything/$basearch/os/
+enabled=1
+gpgcheck=0
+REPO
           
           echo "--- Downloading Source RPM per ${{ matrix.package }} ---"
           dnf download --source ${{ matrix.package }}
