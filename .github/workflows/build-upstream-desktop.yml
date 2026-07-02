@@ -49,10 +49,11 @@ jobs:
         id: check_idempotency
         run: |
           dnf install -y dnf5 skopeo jq
+          dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-rawhide.noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-rawhide.noarch.rpm || true
           IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-rolling-${{ matrix.package }}:latest" | tr '[:upper:]' '[:lower:]')
           
-          # Trova versione upstream su Fedora
-          UPSTREAM_INFO=$(dnf5 info --repo=updates --repo=fedora ${{ matrix.package }})
+          # Trova versione upstream su Fedora (inclusi RPM Fusion)
+          UPSTREAM_INFO=$(dnf5 info ${{ matrix.package }})
           UPSTREAM_VER=$(echo "$UPSTREAM_INFO" | awk '/^Version/ {print $3}' | head -n 1)
           UPSTREAM_REL=$(echo "$UPSTREAM_INFO" | awk '/^Release/ {print $3}' | head -n 1)
           UPSTREAM_FULL="${UPSTREAM_VER}-${UPSTREAM_REL}"
@@ -80,12 +81,17 @@ jobs:
           rpmdev-setuptree
           cd ~/rpmbuild/SRPMS
           
+          echo "--- Abilitazione RPM Fusion (Rawhide) ---"
+          dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-rawhide.noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-rawhide.noarch.rpm || true
+          
           echo "--- Downloading Source RPM per ${{ matrix.package }} ---"
           dnf download --source ${{ matrix.package }}
-          dnf builddep -y *.src.rpm          
           
           echo "--- Estrazione SRPM per applicare Ponytail Ultra ---"
           rpm -ivh *.src.rpm
+          
+          echo "--- Risoluzione Dipendenze Estrema (su SPEC) ---"
+          dnf builddep -y ~/rpmbuild/SPECS/*.spec
           
           echo "--- Iniezione Dinamica Ponytail Ultra ---"
           for spec in ~/rpmbuild/SPECS/*.spec; do
