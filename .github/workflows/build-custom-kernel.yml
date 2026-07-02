@@ -71,7 +71,7 @@ jobs:
         if: steps.idempotency.outputs.skip_build != 'true'
         run: |
           echo "Iniezione sensori GCOV per profilazione empirica..."
-          cd ~/rpmbuild/BUILD/linux-*
+          cd ~/rpmbuild/BUILD/$(cat ~/rpmbuild/BUILD/.kernel_version)
           ./scripts/config --enable GCOV_KERNEL
           ./scripts/config --enable GCOV_PROFILE_ALL
           make olddefconfig
@@ -146,7 +146,7 @@ jobs:
         if: steps.idempotency.outputs.skip_build != 'true'
         run: |
           echo "Rimozione sensori GCOV (Cristallizzazione)..."
-          cd ~/rpmbuild/BUILD/linux-*
+          cd ~/rpmbuild/BUILD/$(cat ~/rpmbuild/BUILD/.kernel_version)
           ./scripts/config --disable GCOV_KERNEL
           ./scripts/config --disable GCOV_PROFILE_ALL
           make olddefconfig
