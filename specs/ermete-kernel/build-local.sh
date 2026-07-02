@@ -20,6 +20,7 @@ docker run --rm -i \
   --security-opt label=disable \
   -v "$FORGE_DIR":/forge \
   -w /forge \
+  -e GITHUB_WORKSPACE=/forge \
   registry.fedoraproject.org/fedora:43 \
   /bin/bash -c "
     echo '>>> Configurazione DNF (Identica alla CI)...'
@@ -28,7 +29,7 @@ docker run --rm -i \
     echo 'install_weak_deps=False' >> /etc/dnf/dnf.conf
     
     echo '>>> Installazione Architettura di Compilazione...'
-    dnf install -y rpm-build rpmdevtools gcc gcc-c++ make cmake flex bison ncurses-devel elfutils-libelf-devel openssl-devel bc rsync tar wget curl cpio perl zstd git llvm clang lld ccache qemu-kvm stress-ng iperf3 jq gnupg2 hostname skopeo
+    dnf install -y rpm-build rpmdevtools gcc gcc-c++ make cmake flex bison ncurses-devel elfutils-libelf-devel openssl-devel bc rsync tar wget curl cpio perl zstd git llvm clang lld ccache qemu-kvm stress-ng iperf3 jq gnupg2 hostname skopeo elfutils-devel dwarves openssl
     
     echo '>>> Esecuzione prepare-chimera.sh...'
     bash specs/ermete-kernel/prepare-chimera.sh
