@@ -1,3 +1,4 @@
+%global debug_package %{nil}
 Name:           ermete-bibata-cursor
 Version:        2.0.7
 Release:        1%{?dist}

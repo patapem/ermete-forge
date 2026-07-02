@@ -13,6 +13,7 @@
 
 %global crate bat
 
+%global debug_package %{nil}
 Name:           rust-bat
 Version:        0.26.1
 Release:        %autorelease
@@ -233,12 +234,7 @@ License:        Apache-2.0 AND BSD-2-Clause AND BSD-2-Clause-Views AND BSD-3-Cla
 %license LICENSE-MIT
 %license NOTICE
 %license LICENSE.dependencies
-%doc CHANGELOG.md
-%doc CONTRIBUTING.md
-%doc README.md
-%doc SECURITY.md
 %{_bindir}/bat
-%{_mandir}/man1/bat.1*
 %{bash_completions_dir}/bat.bash
 %{fish_completions_dir}/bat.fish
 %{zsh_completions_dir}/_bat
@@ -258,10 +254,6 @@ use the "%{crate}" crate.
 %license %{crate_instdir}/LICENSE-APACHE
 %license %{crate_instdir}/LICENSE-MIT
 %license %{crate_instdir}/NOTICE
-%doc %{crate_instdir}/CHANGELOG.md
-%doc %{crate_instdir}/CONTRIBUTING.md
-%doc %{crate_instdir}/README.md
-%doc %{crate_instdir}/SECURITY.md
 %{crate_instdir}/
 
 %package     -n %{name}+default-devel
@@ -496,7 +488,6 @@ use the "wild" feature of the "%{crate}" crate.
 %cargo_install
 # install man page
 find target/release/build -name bat.1 -print -quit | xargs -I {} install -Dpm0644 {} \
-    %{buildroot}%{_mandir}/man1/bat.1
 # install shell completions
 install -Dpm0644 target/release/build/%{crate}-*/out/assets/completions/bat.bash \
     %{buildroot}/%{bash_completions_dir}/bat.bash

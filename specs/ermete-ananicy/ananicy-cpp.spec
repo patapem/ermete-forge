@@ -1,3 +1,4 @@
+%global debug_package %{nil}
 Name:           ananicy-cpp
 Version:        1.1.1
 Release:        1%{?dist}
@@ -36,7 +37,6 @@ install -Dm644 ananicy-cpp.service %{buildroot}%{_unitdir}/ananicy-cpp.service
 
 %files
 %license LICENSE
-%doc README.md
 %{_bindir}/ananicy-cpp
 %{_unitdir}/ananicy-cpp.service
 %config(noreplace) /etc/ananicy.d/
