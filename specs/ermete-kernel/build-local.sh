@@ -57,10 +57,10 @@ docker run --rm -i \
     echo ' BUILD LOCALE COMPLETATA CON SUCCESSO.'
     echo '========================================================='
     echo 'I pacchetti RPM sono disponibili nel container in ~/rpmbuild/RPMS/'
-    ls -lh ~/rpmbuild/RPMS/x86_64/
+    ls -lh ~/rpmbuild/BUILD/\$KERNEL_DIR/rpmbuild/RPMS/x86_64/
     
-    echo 'Copia degli RPM sulla Forgia...'
+    echo \"Copia degli RPM sulla Forgia...\"
     mkdir -p /forge/RPMS_OUT
-    cp ~/rpmbuild/RPMS/x86_64/*.rpm /forge/RPMS_OUT/
+    cp ~/rpmbuild/BUILD/\$KERNEL_DIR/rpmbuild/RPMS/x86_64/*.rpm /forge/RPMS_OUT/
     echo 'Troverai i file finali in ermete-forge/RPMS_OUT/'
 "
