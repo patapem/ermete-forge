@@ -279,9 +279,11 @@ done
 ./scripts/config --disable DRM_NOUVEAU
 make olddefconfig
 
-echo ">>> Generazione ~/.rpmmacros globale per la compilazione..."
-cat "$GITHUB_WORKSPACE/config/rpmmacros" > ~/.rpmmacros
-cat << 'MCR' >> ~/.rpmmacros
+echo ">>> Generazione ~/.rpmmacros locale esclusivo per KERNEL..."
+cat << 'MCR' > ~/.rpmmacros
+%_smp_mflags %{nil}
+%_enable_debug_packages 0
+%debug_package %{nil}
 %_with_vanilla 1
 %buildid .chimera
 %toolchain gcc
