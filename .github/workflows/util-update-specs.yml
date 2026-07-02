@@ -22,7 +22,7 @@ jobs:
             local spec_file=$2
             
             # Fetch latest release tag (remove 'v' prefix if present)
-            local latest_tag=$(curl -sL https://api.github.com/repos/${repo}/releases/latest | jq -r .tag_name | sed 's/^v//')
+            local latest_tag=$(curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${repo}/releases/latest | jq -r .tag_name | sed 's/^v//')
             if [ -z "$latest_tag" ] || [ "$latest_tag" == "null" ]; then
               echo "Could not fetch release for $repo"
               return
@@ -43,6 +43,7 @@ jobs:
           update_spec "starship/starship" "specs/ermete-starship/ermete-starship.spec"
           update_spec "InioX/matugen" "specs/ermete-matugen/ermete-matugen.spec"
           update_spec "ful1e5/Bibata_Cursor" "specs/ermete-bibata/ermete-bibata.spec"
+          update_spec "Aylur/astal" "specs/ermete-astal/aylurs-gtk-shell2/aylurs-gtk-shell2.spec"
           
           if [ "$UPDATED" -eq 1 ]; then
             git config --global user.name "Ermete Forge Bot"

@@ -1,8 +1,0 @@
---- macros.cargo
-+++ macros.cargo
-@@ -143,3 +143,5 @@
- EOF}}\
- %{__rm} -f Cargo.toml.orig\
-+find /usr/share/cargo/registry/ -maxdepth 1 -mindepth 1 -type d -exec touch {}/README.md \; || true\
-+sed -i 's/--locked//g' /usr/lib/rpm/macros.d/macros.cargo || true\
- )

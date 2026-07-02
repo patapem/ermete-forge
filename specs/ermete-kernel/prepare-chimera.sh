@@ -70,19 +70,35 @@ echo ">>> MATCH PERFETTO! Costruiremo il kernel Mainline versione: $TARGET_KERNE
 echo "========================================================="
 echo " FASE 2: FONDAMENTA E CHIRURGIA PATCH (Upstream Torvalds)"
 echo "========================================================="
-echo ">>> Determinazione ultima release stabile per Torvalds $TARGET_KERNEL_VER..."
-KERNEL_LATEST_TARBALL=$(curl -s https://cdn.kernel.org/pub/linux/kernel/v6.x/ | grep -Eo "linux-${TARGET_KERNEL_VER}\.[0-9]+\.tar\.xz" | sort -V | tail -n 1 || true)
-if [ -z "$KERNEL_LATEST_TARBALL" ]; then
-    KERNEL_LATEST_TARBALL="linux-${TARGET_KERNEL_VER}.tar.xz"
-fi
-KERNEL_EXTRACT_DIR="${KERNEL_LATEST_TARBALL%.tar.xz}"
+echo ">>> [BEDROCK SECURE] Determinazione release stabile per Torvalds $TARGET_KERNEL_VER via API JSON..."
+KERNEL_API_URL="https://www.kernel.org/releases.json"
+KERNEL_JSON=$(curl -s "$KERNEL_API_URL")
+KERNEL_LATEST=$(echo "$KERNEL_JSON" | jq -r ".releases[] | select(.version | startswith(\"$TARGET_KERNEL_VER\")) | .version" | sort -V | tail -n 1)
 
-echo ">>> Scaricamento Kernel Upstream Torvalds ($KERNEL_LATEST_TARBALL)..."
+if [ -z "$KERNEL_LATEST" ]; then
+    echo "ERRORE FATALE: Nessuna release trovata per la versione base $TARGET_KERNEL_VER tramite API."
+    exit 1
+fi
+
+KERNEL_LATEST_TARBALL="linux-${KERNEL_LATEST}.tar.xz"
+KERNEL_EXTRACT_DIR="linux-${KERNEL_LATEST}"
+
+echo ">>> Scaricamento Kernel Upstream Torvalds ($KERNEL_LATEST_TARBALL) e firme crittografiche..."
 if [ ! -f "$KERNEL_LATEST_TARBALL" ]; then
     wget -q "https://cdn.kernel.org/pub/linux/kernel/v6.x/$KERNEL_LATEST_TARBALL"
+    wget -q "https://cdn.kernel.org/pub/linux/kernel/v6.x/${KERNEL_LATEST_TARBALL%.xz}.sign"
 fi
 
-echo ">>> Estrazione del Kernel..."
+echo ">>> [BEDROCK SECURE] Validazione Crittografica GPG della Firma di Torvalds / Greg KH..."
+export GNUPGHOME="$(mktemp -d)"
+gpg --quiet --auto-key-locate wkd --locate-keys torvalds@kernel.org gregkh@kernel.org > /dev/null
+if ! xz -cd "$KERNEL_LATEST_TARBALL" | gpg --quiet --verify "${KERNEL_LATEST_TARBALL%.xz}.sign" - > /dev/null 2>&1; then
+    echo "ERRORE FATALE: Validazione crittografica fallita! L'archivio potrebbe essere compromesso."
+    exit 1
+fi
+echo ">>> [SUCCESS] Firma crittografica valida. L'autenticità del Kernel è garantita."
+
+echo ">>> Estrazione del Kernel Certificato..."
 tar -xf "$KERNEL_LATEST_TARBALL"
 cd "$KERNEL_EXTRACT_DIR"
 

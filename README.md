@@ -48,4 +48,24 @@ Ogni componente estratto viene trasformato istantaneamente in un'immagine `scrat
 - `ghcr.io/patapem/ermete-forge/ermete-kernel`: Il Kernel Trismegistus PGO
 - `ghcr.io/patapem/ermete-forge/ermete-niri-session`: Configurazione e sessione di Window Management incapsulata in `.spec`
 
+## ⚖️ Le Leggi della Forgia (Project Rules)
+Queste direttive generali garantiscono il mantenimento corretto e pulito dell'ecosistema nel tempo.
+
+### 🟢 COSA DEVE ESSERE FATTO (The "Musts")
+- **PIPELINE:** Ogni componente o personalizzazione deve essere isolato nel proprio pacchetto RPM nativo e generare un micro-container OCI indipendente.
+- **PIPELINE:** Mantenere un approccio modulare e orizzontale, permettendo al sistema di auto-mantenersi tramite i trigger automatizzati.
+- **USERSPACE:** Rispettare il principio "Absolute RPM Encapsulation". Qualsiasi configurazione o dotfile utente deve derivare da un pacchetto strutturato.
+
+### 🔴 COSA NON DEVE ESSERE MAI FATTO (The "Never Do's")
+- **PIPELINE:** Creare build monolitiche o inserire più progetti non correlati all'interno della stessa pipeline (rompendo la granularità OCI).
+- **PIPELINE:** Affidarsi a repository esterni (es. COPR) o scaricare binari pre-compilati non verificati. La Forgia compila nativamente dal sorgente.
+- **USERSPACE:** Iniettare script bash crudi, file di configurazione non tracciati o scorciatoie (hack) per risolvere problemi complessi. Ogni modifica deve risalire a un `.spec`.
+
 *(Maintainers: Qualsiasi nuova directory aggiunta in `specs/` verrà processata e pushato dinamicamente in base alla priorità dichiarata nel Makefile/Orchestratore).*
+
+## 🔗 Horizontal Rolling Automation (Zero-Maintenance CI/CD)
+Ermete Forge isn't just a compiler; it is the central nervous system of the Ermete Ecosystem.
+Through a series of advanced GitHub Actions (`trigger-base-nvidia.yml`, `trigger-ermete-os.yml`), the Forge dictates the entire OCI lifecycle:
+1. When **Kernel, NVIDIA, or Core** packages finish compiling, the Forge fires a `repository_dispatch` to **Ermete Base NVIDIA**, triggering a Ring 0 rebuild.
+2. When **Desktop, UI, or Upstream CLI** packages finish compiling, the Forge bypasses the base layer and fires a dispatch directly to **Ermete OS**, triggering a Ring 3 rebuild.
+This creates a flawless, unattended rolling release loop. You update a spec, and the entire OS updates itself automatically.

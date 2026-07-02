@@ -66,8 +66,6 @@ jobs:
           echo "--- Downloading Source RPM per ${{ matrix.package }} ---"
           dnf download --source ${{ matrix.package }}
           dnf builddep -y *.src.rpm          
-          echo "--- Applicazione Quirks Specifici ---"
-          bash $GITHUB_WORKSPACE/config/apply-quirks.sh "${{ matrix.package }}"
           
           echo "--- Ricompilazione estrema con macro Ermete ---"
           if ! rpmbuild --rebuild --nocheck *.src.rpm; then
@@ -92,6 +90,6 @@ jobs:
           buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
           ctr=$(buildah from scratch)
           buildah copy $ctr /github/home/RPMS/*.rpm /
-          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-upstream-${{ matrix.package }}:latest" | tr '[:upper:]' '[:lower:]')
+          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-rolling-${{ matrix.package }}:latest" | tr '[:upper:]' '[:lower:]')
           buildah commit $ctr $IMAGE_LOWER
           buildah push $IMAGE_LOWER

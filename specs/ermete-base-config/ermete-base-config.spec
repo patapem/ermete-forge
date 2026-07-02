@@ -25,8 +25,6 @@ cp -a %{_sourcedir}/* %{buildroot}/
 %files
 /etc/pki/rpm-gpg/*
 /etc/selinux/config
-/etc/systemd/system/*
-/etc/tmpfiles.d/*
 /etc/yum.repos.d/*
 /usr/bin/nvidia-sleep.sh
 /usr/lib/fedora-release

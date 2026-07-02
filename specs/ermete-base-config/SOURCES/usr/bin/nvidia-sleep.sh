@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-
+set -e
 if [ ! -f /proc/driver/nvidia/suspend ]; then
     exit 0
 fi

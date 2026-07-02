@@ -112,8 +112,8 @@ jobs:
           buildah commit $ctr $IMAGE_LOWER
           buildah push $IMAGE_LOWER
 
-  build-cachyos-addons:
-    name: ⚙️ Build CachyOS Addons
+  build-bore-sysctl:
+    name: ⚙️ Build bore-sysctl
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -122,22 +122,70 @@ jobs:
       image: registry.fedoraproject.org/fedora:43
       options: --privileged
     steps:
-      - name: Fetch and Package CachyOS Addons
+      - name: Fetch and Package
         run: |
-          dnf install -y dnf5 dnf5-plugins curl rpm-build rpmdevtools
-          FEDORA_VERSION=43
-          curl -Lo /etc/yum.repos.d/bieszczaders-kernel-cachyos-addons.repo "https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos-addons/repo/fedora-${FEDORA_VERSION}/bieszczaders-kernel-cachyos-addons-fedora-${FEDORA_VERSION}.repo"
-          sed -i "s/%{fedora}/${FEDORA_VERSION}/g" /etc/yum.repos.d/bieszczaders-kernel-cachyos-addons.repo
+          dnf install -y dnf5 curl
+          curl -Lo /etc/yum.repos.d/bieszczaders.repo "https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos-addons/repo/fedora-43/bieszczaders-kernel-cachyos-addons-fedora-43.repo"
           mkdir -p /github/home/RPMS
-          dnf5 download -y --destdir=/github/home/RPMS bore-sysctl scx-scheds scx-tools
+          dnf5 download -y --destdir=/github/home/RPMS bore-sysctl
       - name: Publish Micro-Container OCI
         run: |
           dnf install -y buildah
-          export STORAGE_DRIVER=vfs
-          export BUILDAH_ISOLATION=chroot
+          export STORAGE_DRIVER=vfs BUILDAH_ISOLATION=chroot
           buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
           ctr=$(buildah from scratch)
           buildah copy $ctr /github/home/RPMS/*.rpm /
-          IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-cachyos-addons:latest" | tr '[:upper:]' '[:lower:]')
-          buildah commit $ctr $IMAGE_LOWER
-          buildah push $IMAGE_LOWER
+          IMAGE=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-bore-sysctl:latest" | tr '[:upper:]' '[:lower:]')
+          buildah commit $ctr $IMAGE && buildah push $IMAGE
+
+  build-scx-scheds:
+    name: ⚙️ Build scx-scheds
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: registry.fedoraproject.org/fedora:43
+      options: --privileged
+    steps:
+      - name: Fetch and Package
+        run: |
+          dnf install -y dnf5 curl
+          curl -Lo /etc/yum.repos.d/bieszczaders.repo "https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos-addons/repo/fedora-43/bieszczaders-kernel-cachyos-addons-fedora-43.repo"
+          mkdir -p /github/home/RPMS
+          dnf5 download -y --destdir=/github/home/RPMS scx-scheds
+      - name: Publish Micro-Container OCI
+        run: |
+          dnf install -y buildah
+          export STORAGE_DRIVER=vfs BUILDAH_ISOLATION=chroot
+          buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+          ctr=$(buildah from scratch)
+          buildah copy $ctr /github/home/RPMS/*.rpm /
+          IMAGE=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-scx-scheds:latest" | tr '[:upper:]' '[:lower:]')
+          buildah commit $ctr $IMAGE && buildah push $IMAGE
+
+  build-scx-tools:
+    name: ⚙️ Build scx-tools
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: registry.fedoraproject.org/fedora:43
+      options: --privileged
+    steps:
+      - name: Fetch and Package
+        run: |
+          dnf install -y dnf5 curl
+          curl -Lo /etc/yum.repos.d/bieszczaders.repo "https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos-addons/repo/fedora-43/bieszczaders-kernel-cachyos-addons-fedora-43.repo"
+          mkdir -p /github/home/RPMS
+          dnf5 download -y --destdir=/github/home/RPMS scx-tools
+      - name: Publish Micro-Container OCI
+        run: |
+          dnf install -y buildah
+          export STORAGE_DRIVER=vfs BUILDAH_ISOLATION=chroot
+          buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+          ctr=$(buildah from scratch)
+          buildah copy $ctr /github/home/RPMS/*.rpm /
+          IMAGE=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-scx-tools:latest" | tr '[:upper:]' '[:lower:]')
+          buildah commit $ctr $IMAGE && buildah push $IMAGE

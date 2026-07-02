@@ -32,12 +32,13 @@ Le patch vengono applicate tramite lo script `prepare-chimera.sh` con una logica
 
 ---
 
-## 4. Toolchain Estrema (Gentoo-Style)
-In Fedora il kernel è storicamente compilato con GCC. Noi lo sradichiamo e forziamo l'intero albero (incluso l'assembler) su **LLVM/Clang** iniettando macro globali `~/.rpmmacros`.
+## 4. Toolchain Estrema e Kernel PGO (Profile-Guided Optimization)
+Per estrarre il 100% delle prestazioni, il kernel non viene più compilato con LLVM/Clang come in passato, bensì forgiato su **GCC 15.2+** sfruttando un'ottimizzazione PGO (Profile-Guided Optimization) a 3 fasi:
 
-* **`%_with_toolchain_clang 1`**: L'intero codice è parsato da Clang. Genera oltre 3000 *warning* di inizializzazione costanti non sicure (es. `-Wdefault-const-init-var-unsafe`), che abbiamo silenziato (non fatali) ignorandoli deliberatamente per conformità.
-* **LTO Abilitato (`%_with_clang_lto 1`)**: Link-Time Optimization. Il linker di LLVM (lld) analizza globalmente l'intero codice binario eliminando codice morto e ottimizzando chiamate tra funzioni tra moduli distanti, una manovra che incrementa visibilmente l'IPC (Instructions Per Clock).
-* **Architettura `-march=x86-64-v3`**: Non supportiamo hardware obsoleto. L'intera suite di binari (compresi tutti i Makefile del kernel, sovrascritti via `%optflags`) utilizza set di istruzioni AVX/AVX2 nativi per architetture moderne come il Ryzen 5800X3D.
+1. **Fase Strumentata (GCOV)**: Il kernel viene compilato abilitando i sensori di calcolo in ogni branch (`GCOV_KERNEL` e `GCOV_PROFILE_ALL`).
+2. **Stress Test QEMU (Estrazione Termica)**: Questa immagine "spia" viene avviata in una VM QEMU su protocollo 9pfs isolato. PID 1 lancia `stress-ng` e `iperf3` per "infiammare" lo stack TCP/IP, il VFS e lo Scheduler. I dati (`.gcda`) vengono estratti.
+3. **Cristallizzazione**: I sensori vengono disattivati. Il kernel definitivo è ricompilato nativamente (`make binrpm-pkg`) istruendo GCC a usare la mappa termica (`-fprofile-use`).
+* **Architettura `-march=x86-64-v3`**: Non supportiamo hardware obsoleto. L'intera suite di binari utilizza istruzioni AVX/AVX2 native per architetture moderne come Ryzen 5800X3D.
 
 ---
 
