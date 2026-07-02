@@ -189,8 +189,10 @@ for patch in $(ls .patches/*.patch | sort -V); do
                 echo "   [KBUILD FATAL] La patch ha corrotto la struttura Kconfig/Makefile!"
             fi
             mv .config.bak .config
-            make olddefconfig >/dev/null 2>&1
         fi
+        
+        # Always run olddefconfig to balance the tree and prevent syncconfig hangs
+        make olddefconfig >/dev/null 2>&1
         
         if [ $KCONFIG_FAILED -eq 1 ]; then
             echo "   [ROLLBACK] Conflitto strutturale (Kbuild). Scarto la patch."
@@ -231,7 +233,7 @@ for patch in $(ls .patches/*.patch | sort -V); do
         SUB_FAILED=0
         for sub in $SUBSYSTEMS; do
             if [ -d "$sub" ]; then
-                if ! make -j$(nproc) "$sub/" >/dev/null 2>&1; then
+                if ! make -j$(nproc) "$sub/" </dev/null >/dev/null 2>&1; then
                     SUB_FAILED=1
                     echo "   [SUBSYSTEM FATAL] Compilazione fallita nel sottosistema $sub!"
                     break
