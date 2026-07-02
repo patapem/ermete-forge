@@ -172,10 +172,13 @@ for patch in $(ls .patches/*.patch | sort -V); do
             KCONFIG_FAILED=0
             if grep -E '^\+\+\+ b/(Kconfig|Makefile|.*/Kconfig|.*/Makefile)' "$patch" >/dev/null 2>&1; then
                 echo "   [KBUILD VALIDATION] Verifico integrità dell'albero Kconfig..."
+                cp .config .config.bak
                 if ! make allnoconfig >/dev/null 2>&1; then
                     KCONFIG_FAILED=1
                     echo "   [KBUILD FATAL] La patch ha corrotto la struttura Kconfig/Makefile!"
                 fi
+                mv .config.bak .config
+                make olddefconfig >/dev/null 2>&1
             fi
             
             if [ $KCONFIG_FAILED -eq 1 ]; then
@@ -193,7 +196,7 @@ for patch in $(ls .patches/*.patch | sort -V); do
                     if echo "$c_file" | grep -q '\.c$'; then
                         o_file="${c_file%.c}.o"
                         # Dynamic Extraction of CFLAGS from Kbuild (Bedrock Holy Grail)
-                        CFLAGS=$(make CC=clang V=1 "$o_file" -n 2>/dev/null | grep -E "clang.*-c.*$c_file" | head -n 1 | sed "s/.*clang //; s/-c.*//" || true)
+                        CFLAGS=$(make CC=clang V=1 "$o_file" -n </dev/null 2>/dev/null | grep -E "clang.*-c.*$c_file" | head -n 1 | sed "s/.*clang //; s/-c.*//" || true)
                         if [ -n "$CFLAGS" ]; then
                             if ! clang -fsyntax-only $CFLAGS "$c_file" >/dev/null 2>&1; then
                                 AST_FAILED=1
