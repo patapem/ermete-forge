@@ -35,9 +35,21 @@ dnf builddep -y *.src.rpm
 
 
 echo "========================================"
+echo "=== ESTRAZIONE E INIEZIONE PONYTAIL ==="
+echo "========================================"
+rpm -ivh *.src.rpm
+
+for spec in ~/rpmbuild/SPECS/*.spec; do
+  if ! grep -q "debug_package %{nil}" "$spec"; then
+    awk '/^Name:/ { print "%global debug_package %{nil}"; print $0; next } 1' "$spec" > "$spec.tmp" && mv "$spec.tmp" "$spec"
+  fi
+  awk '!/^[[:space:]]*%doc/ && !/%{_mandir}/' "$spec" > "$spec.tmp" && mv "$spec.tmp" "$spec"
+done
+
+echo "========================================"
 echo "=== COMPILAZIONE ESTREMA (ROLLING) ==="
 echo "========================================"
-rpmbuild --rebuild *.src.rpm
+rpmbuild -bb --nocheck ~/rpmbuild/SPECS/*.spec
 
 echo "=================================================="
 echo "🎯 PACCHETTO ROLLING '$PACKAGE' COMPILATO CON SUCCESSO! 🎯"
