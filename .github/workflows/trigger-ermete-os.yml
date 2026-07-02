@@ -1,0 +1,24 @@
+name: Trigger Downstream Ermete OS
+on:
+  workflow_run:
+    workflows:
+      - "Ermete Custom Desktop"
+      - "Ermete System Components"
+      - "Ermete Upstream CLI"
+      - "Ermete Upstream Core"
+      - "Ermete Upstream Desktop"
+      - "Ermete Upstream Media"
+    types:
+      - completed
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Dispatch to Ermete OS
+        run: |
+          curl -X POST https://api.github.com/repos/${{ github.repository_owner }}/ermete/dispatches \
+          -H "Accept: application/vnd.github.v3+json" \
+          -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
+          -d '{"event_type": "forge-updated"}'

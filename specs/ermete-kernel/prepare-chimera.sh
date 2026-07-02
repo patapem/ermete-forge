@@ -88,6 +88,34 @@ echo "$KERNEL_EXTRACT_DIR" > ../.kernel_version
 
 mkdir -p .patches
 
+# [BEDROCK] Universal Domain Router
+# Assicura che la patch migliore (in base al dominio) venga applicata per prima
+route_patch() {
+    local patch="$1"
+    local source="$2"
+    local lower_patch="${patch,,}"
+    local domain="99"
+    local priority="9"
+    
+    if [[ "$lower_patch" =~ (bore|sched|eevdf|cfs|cpu|topology) ]]; then
+        domain="02"
+        case "$source" in cachyos) priority="1" ;; xanmod) priority="2" ;; tkg) priority="3" ;; liquorix) priority="4" ;; *) priority="5" ;; esac
+    elif [[ "$lower_patch" =~ (bbr|tcp|net|wireguard|bpf) ]]; then
+        domain="04"
+        case "$source" in xanmod) priority="1" ;; liquorix) priority="2" ;; cachyos) priority="3" ;; tkg) priority="4" ;; *) priority="5" ;; esac
+    elif [[ "$lower_patch" =~ (mglru|mm|lru|zswap|zram|page|memory|vm) ]]; then
+        domain="03"
+        case "$source" in clear) priority="1" ;; cachyos) priority="2" ;; xanmod) priority="3" ;; tkg) priority="4" ;; *) priority="5" ;; esac
+    elif [[ "$lower_patch" =~ (fs|ext4|btrfs|xfs|zfs|io|block|nvme) ]]; then
+        domain="05"
+        case "$source" in liquorix) priority="1" ;; cachyos) priority="2" ;; xanmod) priority="3" ;; tkg) priority="4" ;; *) priority="5" ;; esac
+    else
+        domain="99"
+        case "$source" in tkg) priority="1" ;; cachyos) priority="2" ;; xanmod) priority="3" ;; liquorix) priority="4" ;; clear) priority="5" ;; esac
+    fi
+    echo "${domain}_${priority}_${source}_${patch}"
+}
+
 echo ">>> [TIME-TRAVEL] Sincronizzazione dinamica Clear Linux..."
 pushd /tmp/clearlinux-patches > /dev/null
 KERNEL_VER_ESC="${TARGET_KERNEL_VER//./\\.}"
@@ -105,7 +133,7 @@ for patch_name in \
     "0002-sched-core-add-some-branch-hints-based-on-gcov-analy.patch" \
     "0170-sched-Add-unlikey-branch-hints-to-several-system-cal.patch"; do
     if [ -f "$patch_name" ]; then
-        cp "$patch_name" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/40_clear_${patch_name}" || true
+        cp "$patch_name" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/$(route_patch "$patch_name" "clear")" || true
     fi
 done
 popd > /dev/null
@@ -119,9 +147,9 @@ if [ -d "/tmp/xanmod-patches" ]; then
         git checkout -q "$XANMOD_COMMIT"
     fi
     if [ -d "linux-${TARGET_KERNEL_VER}.y-xanmod" ]; then
-        for p in linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/30_xanmod_$(basename "$p")"; done || true
+        for p in linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/$(route_patch "$(basename "$p")" "xanmod")"; done || true
     elif [ -d "eol/linux-${TARGET_KERNEL_VER}.y-xanmod" ]; then
-        for p in eol/linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/30_xanmod_$(basename "$p")"; done || true
+        for p in eol/linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/$(route_patch "$(basename "$p")" "xanmod")"; done || true
     fi
     popd > /dev/null
 fi
@@ -134,7 +162,7 @@ if [ -d "/tmp/liquorix-patches" ]; then
         echo "    Allineamento Liquorix al branch: ${TARGET_KERNEL_VER}/master"
         git checkout -q "${TARGET_KERNEL_VER}/master"
         # Liquorix patches (contains Zen)
-        for p in linux-liquorix/debian/patches/zen/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/50_liquorix_$(basename "$p")"; done || true
+        for p in linux-liquorix/debian/patches/zen/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/$(route_patch "$(basename "$p")" "liquorix")"; done || true
     else
         echo "    ATTENZIONE: Branch ${TARGET_KERNEL_VER}/master non trovato in Liquorix."
     fi
@@ -143,10 +171,10 @@ fi
 
 echo ">>> Sincronizzazione CachyOS e Linux-TKG..."
 if [ -d "/tmp/cachyos-patches/$TARGET_KERNEL_VER/all" ]; then
-    for p in /tmp/cachyos-patches/$TARGET_KERNEL_VER/all/*.patch; do cp "$p" .patches/20_cachyos_$(basename "$p"); done || true
+    for p in /tmp/cachyos-patches/$TARGET_KERNEL_VER/all/*.patch; do cp "$p" .patches/$(route_patch "$(basename "$p")" "cachyos"); done || true
 fi
 if [ -d "/tmp/tkg-patches/linux-tkg-patches/$TARGET_KERNEL_VER" ]; then
-    for p in /tmp/tkg-patches/linux-tkg-patches/$TARGET_KERNEL_VER/*.patch; do cp "$p" .patches/10_tkg_$(basename "$p"); done || true
+    for p in /tmp/tkg-patches/linux-tkg-patches/$TARGET_KERNEL_VER/*.patch; do cp "$p" .patches/$(route_patch "$(basename "$p")" "tkg"); done || true
 fi
 
 # Genera un default Kconfig per permettere a Kbuild di funzionare (ci serve per AST validazione)

@@ -115,7 +115,14 @@ jobs:
           iperf3 -s & IPERF_PID=$!
           sleep 2
           iperf3 -c 127.0.0.1 -t 15 -P $CORES
-          kill $IPERF_PID
+          kill $IPERF_PID || true
+          
+          echo "Inizio STRESS SVILUPPO (VFS, Fork, Page Faults)..."
+          cat << 'CCODE' > /tmp/test.c
+          #include <stdio.h>
+          int main() { return 0; }
+          CCODE
+          for i in $(seq 1 100); do gcc -O2 /tmp/test.c -o /tmp/test; done
           
           echo "Estrazione dati GCOV empirici verso l'host..."
           mkdir -p /mnt/host_gcov

@@ -37,9 +37,9 @@ docker run --rm -i \
     KERNEL_DIR=\$(cat ~/rpmbuild/BUILD/.kernel_version)
     cd ~/rpmbuild/BUILD/\$KERNEL_DIR
     
-    echo '>>> [BEDROCK] Iniezione Sensori GCOV (Identica alla Fase 1 CI)...'
-    ./scripts/config --enable GCOV_KERNEL
-    ./scripts/config --enable GCOV_PROFILE_ALL
+    echo '>>> [BEDROCK] Build Veloce (No PGO) per Sviluppo Locale...'
+    ./scripts/config --disable GCOV_KERNEL
+    ./scripts/config --disable GCOV_PROFILE_ALL
     make olddefconfig
     
     echo '>>> Configurazione CCACHE locale persistente...'

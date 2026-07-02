@@ -1,0 +1,32 @@
+/* 🦅 Ermete OS - AGS (Aylur's Gtk Shell) Base Style */
+
+* {
+    all: unset;
+    font-family: "Inter", "Roboto", sans-serif;
+    font-weight: 600;
+}
+
+.top-bar {
+    background-color: rgba(30, 30, 46, 0.85); /* Catppuccin Mocha-ish Base */
+    color: #cdd6f4;
+    border-radius: 12px;
+    margin: 8px 16px;
+    padding: 6px 16px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.os-logo {
+    color: #89b4fa; /* Blue */
+    font-weight: 800;
+    font-size: 14px;
+}
+
+.clock {
+    color: #a6adc8;
+    font-size: 14px;
+}
+
+.power-icon {
+    color: #f38ba8; /* Red */
+    font-size: 16px;
+}
