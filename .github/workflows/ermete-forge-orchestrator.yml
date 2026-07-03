@@ -332,7 +332,7 @@ jobs:
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Upload RPMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-ags-appmenu-glib-translator
           path: /github/home/RPMS/*.rpm
@@ -383,7 +383,7 @@ jobs:
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Upload RPMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-ags-astal-io
           path: /github/home/RPMS/*.rpm
@@ -434,7 +434,7 @@ jobs:
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Upload RPMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-ags-astal
           path: /github/home/RPMS/*.rpm
@@ -485,7 +485,7 @@ jobs:
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Upload RPMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-ags-astal-libs
           path: /github/home/RPMS/*.rpm
@@ -536,7 +536,7 @@ jobs:
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Upload RPMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-ags-astal-gjs
           path: /github/home/RPMS/*.rpm
@@ -587,7 +587,7 @@ jobs:
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Upload RPMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-ags-astal-gtk4
           path: /github/home/RPMS/*.rpm
@@ -638,7 +638,7 @@ jobs:
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Upload RPMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-ags-astal-lua
           path: /github/home/RPMS/*.rpm
@@ -690,7 +690,7 @@ jobs:
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Upload RPMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-ags-aylurs-gtk-shell
           path: /github/home/RPMS/*.rpm
@@ -746,7 +746,7 @@ jobs:
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Upload RPMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-ags-aylurs-gtk-shell2
           path: /github/home/RPMS/*.rpm
@@ -797,7 +797,7 @@ jobs:
           mkdir -p /github/home/RPMS
           cp ~/rpmbuild/RPMS/*/*.rpm /github/home/RPMS/
       - name: Upload RPMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-ags-hyprpanel
           path: /github/home/RPMS/*.rpm
