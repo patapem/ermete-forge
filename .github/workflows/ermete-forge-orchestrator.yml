@@ -60,9 +60,8 @@ jobs:
             cp -a specs/ermete-${{ matrix.package }}/SOURCES/* ~/rpmbuild/SOURCES/ || true
           fi
           
-          spectool -g -R specs/ermete-${{ matrix.package }}/*.spec || true
-          
           dnf builddep -y specs/ermete-${{ matrix.package }}/*.spec || true
+          spectool -g -R specs/ermete-${{ matrix.package }}/*.spec || true
           rpmbuild -bb --nocheck specs/ermete-${{ matrix.package }}/*.spec
           
           mkdir -p /github/home/RPMS
@@ -116,8 +115,8 @@ jobs:
             if skopeo inspect "$IMAGE_LOWER" >/dev/null 2>&1; then
               echo "Immagine trovata per $pkg, skip."
             else
-              spectool -g -R specs/ermete-astal/$pkg/*.spec || true
               dnf builddep -y specs/ermete-astal/$pkg/*.spec || true
+              spectool -g -R specs/ermete-astal/$pkg/*.spec || true
               rpmbuild -bb --nocheck specs/ermete-astal/$pkg/*.spec
               
               # Installa nel sistema locale per i pacchetti successivi!
@@ -482,20 +481,8 @@ jobs:
           rpmdev-setuptree
           cd ~/rpmbuild/SRPMS
           
-          echo "--- Abilitazione RPM Fusion (Rawhide) ---"
-                    cat << 'REPO' > /etc/yum.repos.d/rpmfusion-rawhide.repo
-          [rpmfusion-free-rawhide]
-          name=RPM Fusion for Fedora Rawhide - Free
-          baseurl=http://mirrors.rpmfusion.org/free/fedora/development/rawhide/$basearch/os/
-          enabled=1
-          gpgcheck=0
-          
-          [rpmfusion-nonfree-rawhide]
-          name=RPM Fusion for Fedora Rawhide - Nonfree
-          baseurl=http://mirrors.rpmfusion.org/nonfree/fedora/development/rawhide/$basearch/os/
-          enabled=1
-          gpgcheck=0
-          REPO
+          echo "--- Abilitazione RPM Fusion ---"
+          dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-43.noarch.rpm || true
           
           echo "--- Downloading Source RPM per ${{ matrix.package }} ---"
           dnf download --source ${{ matrix.package }}
@@ -627,20 +614,8 @@ jobs:
           rpmdev-setuptree
           cd ~/rpmbuild/SRPMS
           
-          echo "--- Abilitazione RPM Fusion (Rawhide) ---"
-                    cat << 'REPO' > /etc/yum.repos.d/rpmfusion-rawhide.repo
-          [rpmfusion-free-rawhide]
-          name=RPM Fusion for Fedora Rawhide - Free
-          baseurl=http://mirrors.rpmfusion.org/free/fedora/development/rawhide/$basearch/os/
-          enabled=1
-          gpgcheck=0
-          
-          [rpmfusion-nonfree-rawhide]
-          name=RPM Fusion for Fedora Rawhide - Nonfree
-          baseurl=http://mirrors.rpmfusion.org/nonfree/fedora/development/rawhide/$basearch/os/
-          enabled=1
-          gpgcheck=0
-          REPO
+          echo "--- Abilitazione RPM Fusion ---"
+          dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-43.noarch.rpm || true
           
           echo "--- Downloading Source RPM per ${{ matrix.package }} ---"
           dnf download --source ${{ matrix.package }}
@@ -772,20 +747,8 @@ jobs:
           rpmdev-setuptree
           cd ~/rpmbuild/SRPMS
           
-          echo "--- Abilitazione RPM Fusion (Rawhide) ---"
-                    cat << 'REPO' > /etc/yum.repos.d/rpmfusion-rawhide.repo
-          [rpmfusion-free-rawhide]
-          name=RPM Fusion for Fedora Rawhide - Free
-          baseurl=http://mirrors.rpmfusion.org/free/fedora/development/rawhide/$basearch/os/
-          enabled=1
-          gpgcheck=0
-          
-          [rpmfusion-nonfree-rawhide]
-          name=RPM Fusion for Fedora Rawhide - Nonfree
-          baseurl=http://mirrors.rpmfusion.org/nonfree/fedora/development/rawhide/$basearch/os/
-          enabled=1
-          gpgcheck=0
-          REPO
+          echo "--- Abilitazione RPM Fusion ---"
+          dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-43.noarch.rpm || true
           
           echo "--- Downloading Source RPM per ${{ matrix.package }} ---"
           dnf download --source ${{ matrix.package }}
@@ -918,20 +881,8 @@ jobs:
           rpmdev-setuptree
           cd ~/rpmbuild/SRPMS
           
-          echo "--- Abilitazione RPM Fusion (Rawhide) ---"
-                    cat << 'REPO' > /etc/yum.repos.d/rpmfusion-rawhide.repo
-          [rpmfusion-free-rawhide]
-          name=RPM Fusion for Fedora Rawhide - Free
-          baseurl=http://mirrors.rpmfusion.org/free/fedora/development/rawhide/$basearch/os/
-          enabled=1
-          gpgcheck=0
-          
-          [rpmfusion-nonfree-rawhide]
-          name=RPM Fusion for Fedora Rawhide - Nonfree
-          baseurl=http://mirrors.rpmfusion.org/nonfree/fedora/development/rawhide/$basearch/os/
-          enabled=1
-          gpgcheck=0
-          REPO
+          echo "--- Abilitazione RPM Fusion ---"
+          dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-43.noarch.rpm || true
           
           echo "--- Downloading Source RPM per ${{ matrix.package }} ---"
           dnf download --source ${{ matrix.package }}
