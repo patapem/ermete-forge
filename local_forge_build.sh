@@ -67,6 +67,13 @@ for spec in "${SPECS[@]}"; do
       rm -f ~/rpmbuild/SRPMS/*.nosrc.rpm
   fi
   
+  # Workaround per bug upstream Fedora 43 (rust-sysinfo manca di README.md)
+  if ls /usr/share/cargo/registry/sysinfo-*/src/lib.rs 1> /dev/null 2>&1; then
+      for sysinfo_dir in /usr/share/cargo/registry/sysinfo-*/; do
+          touch "$sysinfo_dir/README.md"
+      done
+  fi
+  
   # Secondo tentativo (build effettiva, se il primo ha generato dipendenze)
   rpmbuild -bb --nocheck "$spec"
   
