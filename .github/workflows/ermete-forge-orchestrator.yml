@@ -360,7 +360,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download Previous RPMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /github/home/PREV_RPMS/
           pattern: rpm-ags-*
@@ -411,7 +411,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download Previous RPMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /github/home/PREV_RPMS/
           pattern: rpm-ags-*
@@ -462,7 +462,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download Previous RPMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /github/home/PREV_RPMS/
           pattern: rpm-ags-*
@@ -513,7 +513,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download Previous RPMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /github/home/PREV_RPMS/
           pattern: rpm-ags-*
@@ -564,7 +564,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download Previous RPMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /github/home/PREV_RPMS/
           pattern: rpm-ags-*
@@ -615,7 +615,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download Previous RPMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /github/home/PREV_RPMS/
           pattern: rpm-ags-*
@@ -666,7 +666,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download Previous RPMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /github/home/PREV_RPMS/
           pattern: rpm-ags-*
@@ -723,7 +723,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download Previous RPMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /github/home/PREV_RPMS/
           pattern: rpm-ags-*
@@ -774,7 +774,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download Previous RPMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /github/home/PREV_RPMS/
           pattern: rpm-ags-*
