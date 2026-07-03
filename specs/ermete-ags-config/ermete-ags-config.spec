@@ -19,7 +19,7 @@ Provides ermete-ags-config for Ermete OS.
 %install
 mkdir -p %{buildroot}/usr/share/ermete-ags-config
 mkdir -p %{buildroot}/etc/skel/.config/ags
-cp -a SOURCES/etc/skel/.config/ags/* %{buildroot}/etc/skel/.config/ags/ || true
+cp -a %{_sourcedir}/etc/skel/.config/ags/* %{buildroot}/etc/skel/.config/ags/ || true
 
 %files
 %dir /usr/share/ermete-ags-config

@@ -20,7 +20,7 @@ Provides ermete-nix-support for Ermete OS.
 mkdir -p %{buildroot}/usr/lib/tmpfiles.d
 mkdir -p %{buildroot}/usr/share/nix-initial-state/var/nix/profiles
 mkdir -p %{buildroot}/nix
-cp -a SOURCES/usr/lib/tmpfiles.d/* %{buildroot}/usr/lib/tmpfiles.d/ || true
+cp -a %{_sourcedir}/usr/lib/tmpfiles.d/* %{buildroot}/usr/lib/tmpfiles.d/ || true
 
 %files
 %dir /nix

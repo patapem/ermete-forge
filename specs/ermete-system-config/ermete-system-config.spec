@@ -21,9 +21,9 @@ mkdir -p %{buildroot}/usr/share/ermete-system-config
 mkdir -p %{buildroot}/usr/lib/systemd/system-preset
 mkdir -p %{buildroot}/usr/lib/tmpfiles.d
 mkdir -p %{buildroot}/etc/greetd
-cp -a SOURCES/usr/lib/systemd/system-preset/* %{buildroot}/usr/lib/systemd/system-preset/ || true
-cp -a SOURCES/usr/lib/tmpfiles.d/* %{buildroot}/usr/lib/tmpfiles.d/ || true
-cp -a SOURCES/etc/greetd/config.toml %{buildroot}/etc/greetd/config.toml || true
+cp -a %{_sourcedir}/usr/lib/systemd/system-preset/* %{buildroot}/usr/lib/systemd/system-preset/ || true
+cp -a %{_sourcedir}/usr/lib/tmpfiles.d/* %{buildroot}/usr/lib/tmpfiles.d/ || true
+cp -a %{_sourcedir}/etc/greetd/config.toml %{buildroot}/etc/greetd/config.toml || true
 
 %post
 

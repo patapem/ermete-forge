@@ -19,7 +19,7 @@ Provides ermete-niri-session for Ermete OS.
 %install
 mkdir -p %{buildroot}/usr/share/ermete-niri-session
 mkdir -p %{buildroot}/etc/skel/.config/niri
-cp -a SOURCES/etc/skel/.config/niri/config.kdl %{buildroot}/etc/skel/.config/niri/config.kdl || true
+cp -a %{_sourcedir}/etc/skel/.config/niri/config.kdl %{buildroot}/etc/skel/.config/niri/config.kdl || true
 
 %files
 %dir /usr/share/ermete-niri-session

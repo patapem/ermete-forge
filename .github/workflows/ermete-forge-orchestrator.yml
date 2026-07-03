@@ -282,6 +282,7 @@ jobs:
       packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
+      options: --privileged
     steps:
       - uses: actions/checkout@v4
       - name: Build RPM
@@ -1149,6 +1150,7 @@ jobs:
       packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
+      options: --privileged
     steps:
       - uses: actions/checkout@v4
       - name: Build RPM
@@ -1156,6 +1158,7 @@ jobs:
           sed -i "/tsflags=nodocs/d" /etc/dnf/dnf.conf
           dnf install -y rpm-build rpmdevtools
           rpmdev-setuptree
+          if [ -d "specs/ermete-ags-config/SOURCES" ]; then cp -a specs/ermete-ags-config/SOURCES/* ~/rpmbuild/SOURCES/ || true; fi
           rpmbuild -bb --nocheck specs/ermete-ags-config/ermete-ags-config.spec
       - name: Publish OCI
         run: |
@@ -1175,6 +1178,7 @@ jobs:
       packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
+      options: --privileged
     steps:
       - uses: actions/checkout@v4
       - name: Build RPM
@@ -1182,6 +1186,7 @@ jobs:
           sed -i "/tsflags=nodocs/d" /etc/dnf/dnf.conf
           dnf install -y rpm-build rpmdevtools
           rpmdev-setuptree
+          if [ -d "specs/ermete-niri-session/SOURCES" ]; then cp -a specs/ermete-niri-session/SOURCES/* ~/rpmbuild/SOURCES/ || true; fi
           rpmbuild -bb --nocheck specs/ermete-niri-session/ermete-niri-session.spec
       - name: Publish OCI
         run: |
@@ -1201,6 +1206,7 @@ jobs:
       packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
+      options: --privileged
     steps:
       - uses: actions/checkout@v4
       - name: Build RPM
@@ -1208,6 +1214,7 @@ jobs:
           sed -i "/tsflags=nodocs/d" /etc/dnf/dnf.conf
           dnf install -y rpm-build rpmdevtools
           rpmdev-setuptree
+          if [ -d "specs/ermete-ide-bootstrap/SOURCES" ]; then cp -a specs/ermete-ide-bootstrap/SOURCES/* ~/rpmbuild/SOURCES/ || true; fi
           rpmbuild -bb --nocheck specs/ermete-ide-bootstrap/ermete-ide-bootstrap.spec
       - name: Publish OCI
         run: |
@@ -1227,6 +1234,7 @@ jobs:
       packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
+      options: --privileged
     steps:
       - uses: actions/checkout@v4
       - name: Build RPM
@@ -1234,6 +1242,7 @@ jobs:
           sed -i "/tsflags=nodocs/d" /etc/dnf/dnf.conf
           dnf install -y rpm-build rpmdevtools
           rpmdev-setuptree
+          if [ -d "specs/ermete-system-services/SOURCES" ]; then cp -a specs/ermete-system-services/SOURCES/* ~/rpmbuild/SOURCES/ || true; fi
           rpmbuild -bb --nocheck specs/ermete-system-services/ermete-system-services.spec
       - name: Publish OCI
         run: |
@@ -1253,6 +1262,7 @@ jobs:
       packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
+      options: --privileged
     steps:
       - uses: actions/checkout@v4
       - name: Build RPM
@@ -1260,6 +1270,7 @@ jobs:
           sed -i "/tsflags=nodocs/d" /etc/dnf/dnf.conf
           dnf install -y rpm-build rpmdevtools
           rpmdev-setuptree
+          if [ -d "specs/ermete-nix-support/SOURCES" ]; then cp -a specs/ermete-nix-support/SOURCES/* ~/rpmbuild/SOURCES/ || true; fi
           rpmbuild -bb --nocheck specs/ermete-nix-support/ermete-nix-support.spec
       - name: Publish OCI
         run: |
@@ -1279,6 +1290,7 @@ jobs:
       packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
+      options: --privileged
     steps:
       - uses: actions/checkout@v4
       - name: Build RPM
@@ -1286,6 +1298,7 @@ jobs:
           sed -i "/tsflags=nodocs/d" /etc/dnf/dnf.conf
           dnf install -y rpm-build rpmdevtools
           rpmdev-setuptree
+          if [ -d "specs/ermete-system-config/SOURCES" ]; then cp -a specs/ermete-system-config/SOURCES/* ~/rpmbuild/SOURCES/ || true; fi
           rpmbuild -bb --nocheck specs/ermete-system-config/ermete-system-config.spec
       - name: Publish OCI
         run: |
@@ -1305,6 +1318,7 @@ jobs:
       packages: write
     container:
       image: registry.fedoraproject.org/fedora:43
+      options: --privileged
     steps:
       - uses: actions/checkout@v4
       - name: Build RPM
@@ -1312,6 +1326,7 @@ jobs:
           sed -i "/tsflags=nodocs/d" /etc/dnf/dnf.conf
           dnf install -y rpm-build rpmdevtools
           rpmdev-setuptree
+          if [ -d "specs/ermete-system-tweaks/SOURCES" ]; then cp -a specs/ermete-system-tweaks/SOURCES/* ~/rpmbuild/SOURCES/ || true; fi
           rpmbuild -bb --nocheck specs/ermete-system-tweaks/ermete-system-tweaks.spec
       - name: Publish OCI
         run: |
