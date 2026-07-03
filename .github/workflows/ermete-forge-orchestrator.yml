@@ -123,7 +123,13 @@ jobs:
             IMAGE_LOWER=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
             
             if skopeo inspect "$IMAGE_LOWER" >/dev/null 2>&1; then
-              echo "Immagine trovata per $pkg, skip."
+              echo "Immagine trovata per $pkg, skip. Estraggo RPM dall'immagine per dipendenze downstream."
+              IMAGE_PULL=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-$pkg:$hash" | tr '[:upper:]' '[:lower:]')
+              ctr=$(buildah from "$IMAGE_PULL")
+              mnt=$(buildah mount $ctr)
+              dnf install -y $mnt/*.rpm || true
+              buildah umount $ctr
+              buildah rm $ctr
             else
               dnf builddep -y specs/ermete-astal/$pkg/*.spec || true
               spectool -g -R specs/ermete-astal/$pkg/*.spec || true
