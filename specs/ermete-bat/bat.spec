@@ -490,12 +490,9 @@ use the "wild" feature of the "%{crate}" crate.
 # install man page
 find target/release/build -name bat.1 -print -quit | xargs -I {} install -Dpm0644 {} %{buildroot}/%{_mandir}/man1/bat.1
 # install shell completions
-install -Dpm0644 target/release/build/%{crate}-*/out/assets/completions/bat.bash \
-    %{buildroot}/%{bash_completions_dir}/bat.bash
-install -Dpm0644 target/release/build/%{crate}-*/out/assets/completions/bat.fish \
-    %{buildroot}/%{fish_completions_dir}/bat.fish
-install -Dpm0644 target/release/build/%{crate}-*/out/assets/completions/bat.zsh \
-    %{buildroot}/%{zsh_completions_dir}/_bat
+find target/release/build -name bat.bash -print -quit | xargs -I {} install -Dpm0644 {} %{buildroot}/%{bash_completions_dir}/bat.bash
+find target/release/build -name bat.fish -print -quit | xargs -I {} install -Dpm0644 {} %{buildroot}/%{fish_completions_dir}/bat.fish
+find target/release/build -name bat.zsh -print -quit | xargs -I {} install -Dpm0644 {} %{buildroot}/%{zsh_completions_dir}/_bat
 
 %if %{with check}
 %check
