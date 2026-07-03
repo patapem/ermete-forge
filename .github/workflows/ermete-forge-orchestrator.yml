@@ -1685,8 +1685,6 @@ jobs:
             if ! grep -q "debug_package %nil" "$spec"; then
               awk '/^Name:/ { print "%global debug_package %nil"; print $0; next } 1' "$spec" > "$spec.tmp" && mv "$spec.tmp" "$spec"
             fi
-            # Elimina file di documentazione e man pages per ridurre il footprint
-            awk '!/^[[:space:]]*%doc/ && !/%_mandir/' "$spec" > "$spec.tmp" && mv "$spec.tmp" "$spec"
           done
           
           echo "--- Ricompilazione estrema con macro Ermete e Ponytail ---"
@@ -1831,8 +1829,6 @@ jobs:
             if ! grep -q "debug_package %nil" "$spec"; then
               awk '/^Name:/ { print "%global debug_package %nil"; print $0; next } 1' "$spec" > "$spec.tmp" && mv "$spec.tmp" "$spec"
             fi
-            # Elimina file di documentazione e man pages per ridurre il footprint
-            awk '!/^[[:space:]]*%doc/ && !/%_mandir/' "$spec" > "$spec.tmp" && mv "$spec.tmp" "$spec"
           done
           
           echo "--- Ricompilazione estrema con macro Ermete e Ponytail ---"
@@ -1977,8 +1973,6 @@ jobs:
             if ! grep -q "debug_package %nil" "$spec"; then
               awk '/^Name:/ { print "%global debug_package %nil"; print $0; next } 1' "$spec" > "$spec.tmp" && mv "$spec.tmp" "$spec"
             fi
-            # Elimina file di documentazione e man pages per ridurre il footprint
-            awk '!/^[[:space:]]*%doc/ && !/%_mandir/' "$spec" > "$spec.tmp" && mv "$spec.tmp" "$spec"
           done
           
           echo "--- Ricompilazione estrema con macro Ermete e Ponytail ---"
@@ -2123,8 +2117,6 @@ jobs:
             if ! grep -q "debug_package %nil" "$spec"; then
               awk '/^Name:/ { print "%global debug_package %nil"; print $0; next } 1' "$spec" > "$spec.tmp" && mv "$spec.tmp" "$spec"
             fi
-            # Elimina file di documentazione e man pages per ridurre il footprint
-            awk '!/^[[:space:]]*%doc/ && !/%_mandir/' "$spec" > "$spec.tmp" && mv "$spec.tmp" "$spec"
           done
           
           echo "--- Ricompilazione estrema con macro Ermete e Ponytail ---"
