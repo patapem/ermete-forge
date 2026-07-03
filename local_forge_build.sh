@@ -6,7 +6,7 @@ echo " ERMETE FORGE - LOCAL MASSIVE BUILD SCRIPT"
 echo "==================================================="
 
 # Inizializza ambiente RPM e copia le macro estreme
-sudo dnf install -y rpm-build dnf-plugins-core rpmdevtools spectool
+dnf install -y rpm-build dnf-plugins-core rpmdevtools spectool
 cp config/rpmmacros ~/.rpmmacros
 rpmdev-setuptree
 
@@ -46,13 +46,28 @@ for spec in "${SPECS[@]}"; do
   echo ">>> Costruzione di $spec"
   echo "---------------------------------------------------"
   
-  # Scarica i sorgenti
+  # Scarica i sorgenti (remoti)
   spectool -g -R "$spec"
   
-  # Installa le dipendenze di build
-  sudo dnf builddep -y "$spec"
+  # Copia i sorgenti locali se esistono
+  SPEC_DIR=$(dirname "$spec")
+  if [ -d "$SPEC_DIR/SOURCES" ]; then
+      cp -a "$SPEC_DIR"/SOURCES/* ~/rpmbuild/SOURCES/ || true
+  fi
   
-  # Compila il pacchetto applicando le global rpmmacros
+  # Installa le dipendenze di build (statiche)
+  dnf builddep -y "$spec" || true
+  
+  # Primo tentativo di build (se è Rust/Python genererà .nosrc.rpm e fallirà, altrimenti compilerà)
+  rpmbuild -bb --nocheck "$spec" || true
+  
+  # Installa le dipendenze dinamiche (se generate)
+  if ls ~/rpmbuild/SRPMS/*.nosrc.rpm 1> /dev/null 2>&1; then
+      dnf builddep -y ~/rpmbuild/SRPMS/*.nosrc.rpm || true
+      rm -f ~/rpmbuild/SRPMS/*.nosrc.rpm
+  fi
+  
+  # Secondo tentativo (build effettiva, se il primo ha generato dipendenze)
   rpmbuild -bb --nocheck "$spec"
   
   # Per soddisfare le dipendenze locali (ad es. di Astal),
@@ -62,7 +77,7 @@ for spec in "${SPECS[@]}"; do
   
   # Sposta e Installa
   find ~/rpmbuild/RPMS -name "${PKG_NAME}*.rpm" -exec cp {} RPMS_OUT/custom/ \;
-  sudo dnf install -y ~/rpmbuild/RPMS/*/${PKG_NAME}*.rpm || true
+  dnf install -y ~/rpmbuild/RPMS/*/${PKG_NAME}*.rpm || true
 done
 
 echo "==================================================="
