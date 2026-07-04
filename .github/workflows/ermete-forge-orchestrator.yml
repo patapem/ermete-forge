@@ -229,14 +229,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Cache Compiler Objects (ccache)
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ccache
-          key: kernel-ccache-${{ github.sha }}
-          restore-keys: |
-            kernel-ccache-
-
       - name: Install Build Dependencies
         run: |
           echo "zchunk=False" >> /etc/dnf/dnf.conf
@@ -269,6 +261,15 @@ jobs:
             echo "Nuovo fingerprint rilevato. Procedo alla compilazione."
             echo "skip_build=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Cache Compiler Objects (ccache)
+        if: steps.idempotency.outputs.skip_build != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: kernel-ccache-${{ github.sha }}
+          restore-keys: |
+            kernel-ccache-
 
       - name: Fase 1 - Build PGO Strumentata (Sensori GCOV)
         if: steps.idempotency.outputs.skip_build != 'true'
