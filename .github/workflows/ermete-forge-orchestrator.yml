@@ -14,7 +14,7 @@ env:
 jobs:
   custom-packages:
     name: 📦 Custom Packages
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -100,7 +100,7 @@ jobs:
 
   ags-ecosystem:
     name: 🖥️ Build AGS Ecosystem
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -161,7 +161,7 @@ jobs:
 
   cachyos-addons:
     name: ⚙️ Build CachyOS Addons
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -190,7 +190,7 @@ jobs:
 
   build-kernel:
     name: 🧠 Build Chimera Kernel (CachyOS + Clear + Gentoo)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -362,7 +362,7 @@ jobs:
 
   build-nvidia:
     name: 🎮 Build NVIDIA KMOD
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -693,7 +693,7 @@ jobs:
   upstream-media:
     name: 📦 Upstream Media
 
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
