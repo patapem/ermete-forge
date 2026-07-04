@@ -10,7 +10,6 @@ on:
 env:
   REGISTRY: ghcr.io
   FEDORA_VERSION: 43
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build-builder:
@@ -23,6 +22,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check Idempotency (Content Hash)
         id: check_idempotency
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 scripts/idempotency_checker.py --package builder --registry ghcr.io --owner ${{ github.repository_owner }} --image-name ermete-builder > idemp.out
           source ./idemp.out
@@ -485,6 +486,8 @@ jobs:
 
       - name: Check Idempotency (Content Hash)
         id: check_idempotency
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} --image-name ermete-forge-rolling-${{ matrix.package }} > idemp.out
           source ./idemp.out
@@ -579,6 +582,8 @@ jobs:
 
       - name: Check Idempotency (Content Hash)
         id: check_idempotency
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} --image-name ermete-forge-rolling-${{ matrix.package }} > idemp.out
           source ./idemp.out
@@ -673,6 +678,8 @@ jobs:
 
       - name: Check Idempotency (Content Hash)
         id: check_idempotency
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} --image-name ermete-forge-rolling-${{ matrix.package }} > idemp.out
           source ./idemp.out
@@ -768,6 +775,8 @@ jobs:
 
       - name: Check Idempotency (Content Hash)
         id: check_idempotency
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} --image-name ermete-forge-rolling-${{ matrix.package }} > idemp.out
           source ./idemp.out
