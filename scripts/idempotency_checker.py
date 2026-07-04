@@ -57,6 +57,7 @@ def main():
     parser.add_argument("--package", required=True, help="Package name (e.g. ags-config)")
     parser.add_argument("--registry", required=True, help="Container registry (e.g., ghcr.io)")
     parser.add_argument("--owner", required=True, help="Repository owner")
+    parser.add_argument("--image-name", required=False, help="Explicit image name (e.g., ermete-builder)")
     
     args = parser.parse_args()
     
@@ -68,13 +69,17 @@ def main():
     orchestrator_yml = repo_root / ".github" / "workflows" / "ermete-forge-orchestrator.yml"
     
     # Determine the hash based on package type
-    if spec_dir.is_dir():
+    if args.package == "builder":
+        builder_dir = repo_root / "builder"
+        content_hash = hash_directory(builder_dir)
+    elif spec_dir.is_dir():
         content_hash = hash_directory(spec_dir)
     else:
         content_hash = hash_upstream(orchestrator_yml, args.package)
         
     # Check if this exact hash already exists in GHCR
-    image_url = f"docker://{args.registry}/{args.owner}/ermete-forge-{args.package}:{content_hash}"
+    img_name = args.image_name if args.image_name else f"ermete-forge-{args.package}"
+    image_url = f"docker://{args.registry}/{args.owner}/{img_name}:{content_hash}"
     cache_hit = "false"
     
     try:

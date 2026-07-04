@@ -20,12 +20,27 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Check Idempotency (Content Hash)
+        id: check_idempotency
+        run: |
+          python3 scripts/idempotency_checker.py --package builder --registry ghcr.io --owner ${{ github.repository_owner }} --image-name ermete-builder > idemp.out
+          source ./idemp.out
+          if [ "$CACHE_HIT" = "true" ]; then
+            echo "cache_hit=true" >> $GITHUB_OUTPUT
+          else
+            echo "cache_hit=false" >> $GITHUB_OUTPUT
+          fi
+          echo "content_hash=$CONTENT_HASH" >> $GITHUB_OUTPUT
+
       - name: Build and Publish Builder
+        if: steps.check_idempotency.outputs.cache_hit != 'true'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          IMAGE_LOWER=$(echo "ghcr.io/${{ github.repository_owner }}/ermete-builder:latest" | tr '[:upper:]' '[:lower:]')
-          docker build -t $IMAGE_LOWER -f builder/Containerfile builder/
-          docker push $IMAGE_LOWER
+          IMAGE_LOWER=$(echo "ghcr.io/${{ github.repository_owner }}/ermete-builder" | tr '[:upper:]' '[:lower:]')
+          docker build -t $IMAGE_LOWER:latest -f builder/Containerfile builder/
+          docker tag $IMAGE_LOWER:latest $IMAGE_LOWER:${{ steps.check_idempotency.outputs.content_hash }}
+          docker push $IMAGE_LOWER:latest
+          docker push $IMAGE_LOWER:${{ steps.check_idempotency.outputs.content_hash }}
 
   custom-packages:
     needs: build-builder
@@ -485,7 +500,7 @@ jobs:
       - name: Check Idempotency (Content Hash)
         id: check_idempotency
         run: |
-          python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} > idemp.out
+          python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} --image-name ermete-forge-rolling-${{ matrix.package }} > idemp.out
           source ./idemp.out
           if [ "$CACHE_HIT" = "true" ]; then
             echo "cache_hit=true" >> $GITHUB_OUTPUT
@@ -587,7 +602,7 @@ jobs:
       - name: Check Idempotency (Content Hash)
         id: check_idempotency
         run: |
-          python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} > idemp.out
+          python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} --image-name ermete-forge-rolling-${{ matrix.package }} > idemp.out
           source ./idemp.out
           if [ "$CACHE_HIT" = "true" ]; then
             echo "cache_hit=true" >> $GITHUB_OUTPUT
@@ -689,7 +704,7 @@ jobs:
       - name: Check Idempotency (Content Hash)
         id: check_idempotency
         run: |
-          python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} > idemp.out
+          python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} --image-name ermete-forge-rolling-${{ matrix.package }} > idemp.out
           source ./idemp.out
           if [ "$CACHE_HIT" = "true" ]; then
             echo "cache_hit=true" >> $GITHUB_OUTPUT
@@ -792,7 +807,7 @@ jobs:
       - name: Check Idempotency (Content Hash)
         id: check_idempotency
         run: |
-          python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} > idemp.out
+          python3 scripts/idempotency_checker.py --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} --image-name ermete-forge-rolling-${{ matrix.package }} > idemp.out
           source ./idemp.out
           if [ "$CACHE_HIT" = "true" ]; then
             echo "cache_hit=true" >> $GITHUB_OUTPUT
