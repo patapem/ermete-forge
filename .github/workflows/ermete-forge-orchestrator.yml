@@ -445,7 +445,20 @@ jobs:
           cp config/rpmmacros ~/.rpmmacros
           chmod 0600 /etc/pki/akmods/private/private_key.priv
 
-          akmods --force --kernels $REAL_KERNEL_VER
+          # [GCC 15 WORKAROUND] NVIDIA 610.43 causes warnings that GCC 15 treats as errors.
+          export IGNORE_CC_MISMATCH=1
+          export KCFLAGS="-Wno-error"
+          export CFLAGS="-Wno-error"
+
+          akmods --force --kernels $REAL_KERNEL_VER || true
+          
+          # [BEDROCK CHECK] Se l'RPM non esiste, facciamo fallire esplicitamente lo step 
+          # per evitare che GitHub Actions salvi una cache vuota "corrotta".
+          ls /var/cache/akmods/nvidia/*.rpm || { 
+            echo "ERRORE CRITICO: RPM NVIDIA non generato! Pulisco la directory per invalidare la cache."; 
+            rm -rf /var/cache/akmods/nvidia/*; 
+            exit 1; 
+          }
       - name: Publish Micro-Container OCI
         if: steps.cache.outputs['cache-hit'] != 'true'
         run: |
