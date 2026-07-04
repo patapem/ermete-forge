@@ -447,6 +447,7 @@ jobs:
 
           akmods --force --kernels $REAL_KERNEL_VER
       - name: Publish Micro-Container OCI
+        if: steps.cache.outputs['cache-hit'] != 'true'
         run: |
           dnf install -y buildah
           export STORAGE_DRIVER=vfs
