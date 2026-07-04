@@ -36,13 +36,21 @@ echo ">>> RISOLUZIONE DINAMICA KERNEL ATTIVO DA API UFFICIALE (Zero-Trust)..."
 KERNEL_API_URL="https://www.kernel.org/releases.json"
 KERNEL_JSON=$(curl -s "$KERNEL_API_URL")
 ACTIVE_KERNELS=$(echo "$KERNEL_JSON" | jq -r ".releases[] | .version" | awk -F. '{print $1"."$2}' | sort -V -r | uniq)
+echo ">>> [BEDROCK SECURE] Calcolo dinamico dello Scudo NVIDIA (Dynamic Ceiling)..."
+curl -sLo /etc/yum.repos.d/fedora-nvidia.repo https://negativo17.org/repos/fedora-nvidia.repo
+NVIDIA_VER=$(dnf repoquery --qf '%{VERSION}\n' akmod-nvidia 2>/dev/null | sort -V | tail -n 1 | awk -F. '{print $1}')
+MAX_KERNEL="6.18" # Default
+if [[ "$NVIDIA_VER" -ge 615 ]]; then MAX_KERNEL="6.20"; fi
+if [[ "$NVIDIA_VER" -ge 620 ]]; then MAX_KERNEL="7.0"; fi
+if [[ "$NVIDIA_VER" -ge 630 ]]; then MAX_KERNEL="7.2"; fi
+echo ">>> NVIDIA Driver rilevato: Serie $NVIDIA_VER.xx -> Massima versione kernel consentita: $MAX_KERNEL"
 
 TARGET_KERNEL_VER=""
 for v in $ACTIVE_KERNELS; do
-    # [NVIDIA SHIELD] Temporaneamente disabilitiamo kernel >= 6.19 
-    # per preservare la compatibilita' AST con i driver NVIDIA proprietari (es. 610.43)
-    if [[ "$v" == "6.19" ]] || [[ "$v" == "6.20" ]] || [[ "$v" == "7."* ]]; then
-        echo ">>> [SHIELD] Saltando la versione $v (NVIDIA KMOD non ancora pronto per queste API)"
+    # [NVIDIA SHIELD DINAMICO]
+    # Se il kernel e' superiore al MAX_KERNEL, lo saltiamo
+    if [[ $(printf "%s\n%s" "$v" "$MAX_KERNEL" | sort -V | head -n1) != "$v" && "$v" != "$MAX_KERNEL" ]]; then
+        echo ">>> [SHIELD] Saltando la versione $v (Superiore al limite NVIDIA $MAX_KERNEL)"
         continue
     fi
 
