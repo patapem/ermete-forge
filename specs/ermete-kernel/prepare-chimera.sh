@@ -39,6 +39,13 @@ ACTIVE_KERNELS=$(echo "$KERNEL_JSON" | jq -r ".releases[] | .version" | awk -F. 
 
 TARGET_KERNEL_VER=""
 for v in $ACTIVE_KERNELS; do
+    # [NVIDIA SHIELD] Temporaneamente disabilitiamo kernel >= 6.19 
+    # per preservare la compatibilita' AST con i driver NVIDIA proprietari (es. 610.43)
+    if [[ "$v" == "6.19" ]] || [[ "$v" == "6.20" ]] || [[ "$v" == "7."* ]]; then
+        echo ">>> [SHIELD] Saltando la versione $v (NVIDIA KMOD non ancora pronto per queste API)"
+        continue
+    fi
+
     if [ -d "/tmp/tkg-patches/linux-tkg-patches/$v" ]; then
         if [ -d "/tmp/xanmod-patches/linux-$v.y-xanmod" ] || [ -d "/tmp/xanmod-patches/eol/linux-$v.y-xanmod" ]; then
             TARGET_KERNEL_VER="$v"
