@@ -1,0 +1,20 @@
+FROM registry.fedoraproject.org/fedora:43
+
+# Copy the custom RPMFusion repository configurations pointing to stable release paths
+COPY rpmfusion-custom.repo /etc/yum.repos.d/rpmfusion-custom.repo
+
+# Install core build tools
+RUN dnf install -y \
+    dnf-plugins-core \
+    rpm-build \
+    rpmdevtools \
+    gcc \
+    gcc-c++ \
+    make \
+    akmods \
+    mock \
+    createrepo_c \
+    buildah \
+    jq \
+    skopeo \
+    && dnf clean all
