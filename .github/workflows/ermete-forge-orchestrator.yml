@@ -353,24 +353,19 @@ jobs:
       - name: Fase 3 - Build PGO Cristallizzata (Performance Assoluta)
         if: steps.idempotency.outputs.skip_build != 'true'
         run: |
-          echo "Rimozione sensori GCOV (Cristallizzazione)..."
-          cd ~/rpmbuild/BUILD/$(cat ~/rpmbuild/BUILD/.kernel_version)
-          ./scripts/config --disable GCOV_KERNEL
-          ./scripts/config --disable GCOV_PROFILE_ALL
-          make olddefconfig
+          echo "Iniezione mappa termica PGO nelle macros RPM..."
+          cat << 'MACRO' >> ~/.rpmmacros
+          %optflags %{__global_compiler_flags} -march=x86-64-v3 -pipe -Wno-error -fprofile-use=/tmp/host_gcov -fprofile-correction -Wno-missing-profile -fgraphite-identity -floop-nest-optimize
+          %kcflags -march=x86-64-v3 -pipe -Wno-error -fprofile-use=/tmp/host_gcov -fprofile-correction -Wno-missing-profile -fgraphite-identity -floop-nest-optimize
+          MACRO
           
           echo "Pulizia build precedente..."
-          rm -rf ~/rpmbuild/RPMS/*
+          rm -rf ~/rpmbuild/BUILD/* ~/rpmbuild/RPMS/*
           
-          echo "Compilazione del Kernel Ottimizzato (Cristallizzazione)..."
+          echo "Compilazione del Kernel Ottimizzato via Fedora Spec (Cristallizzazione)..."
           export PATH="/usr/lib64/ccache:/usr/lib/ccache:$PATH"
           export CCACHE_DIR=~/.cache/ccache
-          echo 'KBUILD_CFLAGS := $(filter-out -fprofile-use=% -fprofile-correction -Wno-missing-profile -fgraphite-identity -floop-nest-optimize, $(KBUILD_CFLAGS))' >> drivers/firmware/efi/libstub/Makefile
-          echo 'KBUILD_CFLAGS := $(filter-out -fprofile-use=% -fprofile-correction -Wno-missing-profile -fgraphite-identity -floop-nest-optimize, $(KBUILD_CFLAGS))' >> arch/x86/boot/Makefile
-          echo 'KBUILD_CFLAGS := $(filter-out -fprofile-use=% -fprofile-correction -Wno-missing-profile -fgraphite-identity -floop-nest-optimize, $(KBUILD_CFLAGS))' >> arch/x86/boot/compressed/Makefile
-          export KCFLAGS="-march=x86-64-v3 -pipe -Wno-error -fprofile-use=/tmp/host_gcov -fprofile-correction -Wno-missing-profile -fgraphite-identity -floop-nest-optimize"
-          export KCPPFLAGS="-march=x86-64-v3 -pipe -Wno-error"
-          make -j$(nproc) binrpm-pkg
+          rpmbuild -bb ~/rpmbuild/SPECS/kernel.spec --target x86_64
           ccache -s
           
       - name: Publish Micro-Container OCI
@@ -381,7 +376,7 @@ jobs:
           export BUILDAH_ISOLATION=chroot
           buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
           ctr=$(buildah from scratch)
-          buildah copy $ctr ~/rpmbuild/BUILD/linux-*/rpmbuild/RPMS/*/*.rpm /
+          buildah copy $ctr ~/rpmbuild/RPMS/*/*.rpm /
           
           IMAGE_LATEST=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-kernel:latest" | tr '[:upper:]' '[:lower:]')
           IMAGE_FINGERPRINT=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-kernel:${{ env.FINGERPRINT }}" | tr '[:upper:]' '[:lower:]')

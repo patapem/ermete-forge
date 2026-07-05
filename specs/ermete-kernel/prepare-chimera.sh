@@ -1,16 +1,15 @@
 #!/bin/bash
-# Ermete OS: The Ultimate Chimera Kernel Bedrock Builder (Upstream Mainline Torvalds)
+# Ermete OS: The Ultimate Chimera Kernel Bedrock Builder (Fedora Upstream Zero-Trust)
 
 set -e
 
-WORKSPACE_DIR="$HOME/rpmbuild/BUILD"
+WORKSPACE_DIR="$HOME/rpmbuild"
 echo ">>> Pulizia profonda del workspace per evitare conflitti con vecchie build..."
-rm -rf "$WORKSPACE_DIR"/*
-mkdir -p "$WORKSPACE_DIR"
+mkdir -p "$WORKSPACE_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 cd "$WORKSPACE_DIR"
 
 echo "========================================================="
-echo " FASE 1: RISOLUZIONE DINAMICA MATRICE KERNEL UPSTREAM"
+echo " FASE 1: RISOLUZIONE DINAMICA KERNEL E PATCH (con NVIDIA Shield)"
 echo "========================================================="
 echo ">>> Clonazione repository patch CachyOS..."
 rm -rf /tmp/cachyos-patches
@@ -28,96 +27,101 @@ echo ">>> Clonazione repository patch XanMod (fetch completo per time-travel)...
 rm -rf /tmp/xanmod-patches
 git clone --depth 500 https://gitlab.com/xanmod/linux-patches.git /tmp/xanmod-patches || true
 
-echo ">>> Clonazione base repository patch Liquorix..."
+echo ">>> Clonazione repository patch Zen Kernel..."
+rm -rf /tmp/zen-patches
+git clone --depth 1 -b zen https://github.com/zen-kernel/zen-kernel.git /tmp/zen-patches || true
+
+echo ">>> Clonazione repository patch Liquorix..."
 rm -rf /tmp/liquorix-patches
 git clone --depth 1 https://github.com/damentz/liquorix-package.git /tmp/liquorix-patches || true
 
-echo ">>> RISOLUZIONE DINAMICA KERNEL ATTIVO DA API UFFICIALE (Zero-Trust)..."
-KERNEL_API_URL="https://www.kernel.org/releases.json"
-KERNEL_JSON=$(curl -s "$KERNEL_API_URL")
-ACTIVE_KERNELS=$(echo "$KERNEL_JSON" | jq -r ".releases[] | .version" | awk -F. '{print $1"."$2}' | sort -V -r | uniq)
-echo ">>> [BEDROCK SECURE] Calcolo dinamico dello Scudo NVIDIA (Dynamic Ceiling)..."
-curl -sLo /etc/yum.repos.d/fedora-nvidia.repo https://negativo17.org/repos/fedora-nvidia.repo
-NVIDIA_VER=$(dnf repoquery --qf '%{VERSION}\n' akmod-nvidia 2>/dev/null | sort -V | tail -n 1 | awk -F. '{print $1}')
-MAX_KERNEL="6.18" # Default
-if [[ "$NVIDIA_VER" -ge 615 ]]; then MAX_KERNEL="6.20"; fi
-if [[ "$NVIDIA_VER" -ge 620 ]]; then MAX_KERNEL="7.0"; fi
-if [[ "$NVIDIA_VER" -ge 630 ]]; then MAX_KERNEL="7.2"; fi
-echo ">>> NVIDIA Driver rilevato: Serie $NVIDIA_VER.xx -> Massima versione kernel consentita: $MAX_KERNEL"
+echo ">>> Clonazione repository patch Garuda..."
+rm -rf /tmp/garuda-patches
+git clone --depth 1 https://gitlab.com/garuda-linux/themes-and-settings/settings/garuda-common-settings.git /tmp/garuda-patches
 
+echo ">>> [BEDROCK SECURE] Calcolo dinamico dello Scudo NVIDIA (Dynamic Ceiling)..."
+curl -sLo /etc/yum.repos.d/fedora-nvidia.repo https://negativo17.org/repos/fedora-nvidia.repo || true
+NVIDIA_VER=$(dnf repoquery --qf '%{VERSION}\n' akmod-nvidia 2>/dev/null | sort -V | tail -n 1 | awk -F. '{print $1}' || true)
+MAX_KERNEL="6.18" # Default
+if [[ -n "$NVIDIA_VER" ]]; then
+    if [[ "$NVIDIA_VER" -ge 615 ]]; then MAX_KERNEL="6.20"; fi
+    if [[ "$NVIDIA_VER" -ge 620 ]]; then MAX_KERNEL="7.0"; fi
+    if [[ "$NVIDIA_VER" -ge 630 ]]; then MAX_KERNEL="7.2"; fi
+fi
+echo ">>> NVIDIA Driver rilevato: Serie ${NVIDIA_VER}.xx -> Massima versione kernel consentita: $MAX_KERNEL"
+
+echo ">>> Ricerca della migliore versione kernel supportata (Fedora -> NVIDIA Shield -> CachyOS -> ClearLinux)..."
+TARGET_RELEASEVER=""
 TARGET_KERNEL_VER=""
-for v in $ACTIVE_KERNELS; do
-    # [NVIDIA SHIELD DINAMICO]
-    # Se il kernel e' superiore al MAX_KERNEL, lo saltiamo
-    if [[ $(printf "%s\n%s" "$v" "$MAX_KERNEL" | sort -V | head -n1) != "$v" && "$v" != "$MAX_KERNEL" ]]; then
-        echo ">>> [SHIELD] Saltando la versione $v (Superiore al limite NVIDIA $MAX_KERNEL)"
+
+source /etc/os-release
+CURRENT_FVER=$VERSION_ID
+MIN_FVER=$((CURRENT_FVER - 4))
+
+for (( ver=$CURRENT_FVER; ver>=$MIN_FVER; ver-- )); do
+    echo ">>> Analisi Fedora $ver..."
+    
+    URL=$(dnf download --source kernel --releasever=$ver --url 2>/dev/null | grep -E '\.src\.rpm' | head -n 1 || true)
+    if [ -z "$URL" ]; then
+        echo "    Nessun kernel sorgente trovato nei repo per Fedora $ver."
         continue
     fi
-
-    if [ -d "/tmp/tkg-patches/linux-tkg-patches/$v" ]; then
-        if [ -d "/tmp/xanmod-patches/linux-$v.y-xanmod" ] || [ -d "/tmp/xanmod-patches/eol/linux-$v.y-xanmod" ]; then
-            TARGET_KERNEL_VER="$v"
-            break
-        fi
+    
+    # Estraiamo la versione major.minor (es. 6.14 da kernel-6.14.5-100.fc43.src.rpm)
+    F_VER=$(basename "$URL" | sed -E 's/^kernel-([0-9]+\.[0-9]+).*/\1/')
+    echo "    Kernel in Fedora $ver: $F_VER"
+    
+    # [NVIDIA SHIELD DINAMICO]
+    if [[ $(printf "%s\n%s" "$F_VER" "$MAX_KERNEL" | sort -V | tail -n 1) != "$MAX_KERNEL" && "$F_VER" != "$MAX_KERNEL" ]]; then
+        echo "    [SHIELD] Kernel $F_VER supera il tetto NVIDIA ($MAX_KERNEL). Passo al precedente..."
+        continue
     fi
+    
+    # 1. Controllo CachyOS
+    if [ ! -d "/tmp/cachyos-patches/$F_VER/all" ]; then
+        echo "    CachyOS NON supporta $F_VER. Passo al precedente..."
+        continue
+    fi
+    
+    # 2. Controllo Clear Linux
+    pushd /tmp/clearlinux-patches > /dev/null
+    F_VER_ESC="${F_VER//./\\.}"
+    CLEAR_COMMIT=$(git log --grep="update.*${F_VER_ESC}\\b" -n 1 --format="%H" || true)
+    popd > /dev/null
+    
+    if [ -z "$CLEAR_COMMIT" ]; then
+        echo "    Clear Linux NON ha patch per $F_VER. Passo al precedente..."
+        continue
+    fi
+    
+    echo ">>> MATCH PERFETTO! Fedora $ver fornisce kernel $F_VER, pienamente supportato da CachyOS e ClearLinux."
+    TARGET_RELEASEVER=$ver
+    TARGET_KERNEL_VER=$F_VER
+    break
 done
 
-if [ -z "$TARGET_KERNEL_VER" ]; then
-    echo "ERRORE FATALE: Nessuna intersezione trovata tra TKG, XanMod e i Kernel Attivi (releases.json)!"
-    exit 1
-fi
-echo ">>> MATCH PERFETTO! Costruiremo il kernel Mainline versione: $TARGET_KERNEL_VER"
-
-echo "========================================================="
-echo " FASE 2: FONDAMENTA E CHIRURGIA PATCH (Upstream Torvalds)"
-echo "========================================================="
-echo ">>> [BEDROCK SECURE] Determinazione release stabile per Torvalds $TARGET_KERNEL_VER via API JSON..."
-KERNEL_API_URL="https://www.kernel.org/releases.json"
-KERNEL_JSON=$(curl -s "$KERNEL_API_URL")
-KERNEL_LATEST=$(echo "$KERNEL_JSON" | jq -r ".releases[] | select(.version | startswith(\"$TARGET_KERNEL_VER\")) | .version" | sort -V | tail -n 1)
-
-if [ -z "$KERNEL_LATEST" ]; then
-    echo "ERRORE FATALE: Nessuna release trovata per la versione base $TARGET_KERNEL_VER tramite API."
+if [ -z "$TARGET_RELEASEVER" ]; then
+    echo "ERRORE FATALE: Nessun kernel compatibile trovato incrociando Fedora, NVIDIA Shield, CachyOS e Clear Linux."
     exit 1
 fi
 
-KERNEL_MAJOR=$(echo "$KERNEL_LATEST" | cut -d. -f1)
-KERNEL_CDN_XZ_URL="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_MAJOR}.x/linux-${KERNEL_LATEST}.tar.xz"
-KERNEL_CDN_GZ_URL="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_MAJOR}.x/linux-${KERNEL_LATEST}.tar.gz"
-KERNEL_GIT_URL="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/snapshot/linux-${KERNEL_LATEST}.tar.gz"
+echo "========================================================="
+echo " FASE 2: LE FONDAMENTA (Fedora Upstream Zero-Trust)"
+echo "========================================================="
+echo ">>> Scaricamento kernel.src.rpm puro (Releasever: $TARGET_RELEASEVER)..."
+dnf download --source kernel --releasever=$TARGET_RELEASEVER
+rpm -ivh kernel-*.src.rpm
+KERNEL_SRPM=$(ls kernel-*.src.rpm | head -n 1)
+KERNEL_VER=$(rpm -qp --qf '%{VERSION}' "$KERNEL_SRPM" | cut -d. -f1,2)
+rm -f kernel-*.src.rpm
 
-KERNEL_LATEST_TARBALL="linux-${KERNEL_LATEST}.tar.xz"
-KERNEL_EXTRACT_DIR="linux-${KERNEL_LATEST}"
-
-echo ">>> [BEDROCK SECURE] Scaricamento Kernel Upstream Torvalds (${KERNEL_LATEST})..."
-if [ ! -f "$KERNEL_LATEST_TARBALL" ] && [ ! -f "linux-${KERNEL_LATEST}.tar.gz" ]; then
-    echo "    Tentativo 1: Download da Fastly Edge CDN (.tar.xz 154MB)..."
-    if ! wget --tries=3 --timeout=20 -qO "$KERNEL_LATEST_TARBALL" "$KERNEL_CDN_XZ_URL"; then
-        echo "    [WARNING] CDN Fastly (.tar.xz) fallito. Tentativo 2: Fastly Edge CDN (.tar.gz 250MB)..."
-        rm -f "$KERNEL_LATEST_TARBALL"
-        KERNEL_LATEST_TARBALL="linux-${KERNEL_LATEST}.tar.gz"
-        if ! wget --tries=3 --timeout=20 -qO "$KERNEL_LATEST_TARBALL" "$KERNEL_CDN_GZ_URL"; then
-            echo "    [WARNING] CDN Fastly (.tar.gz) fallito. Tentativo 3: Git Snapshot da git.kernel.org..."
-            rm -f "$KERNEL_LATEST_TARBALL"
-            wget --tries=3 --timeout=30 -qO "$KERNEL_LATEST_TARBALL" "$KERNEL_GIT_URL"
-        fi
-    fi
+CACHY_PATCH_DIR="/tmp/cachyos-patches/$KERNEL_VER"
+if [ ! -d "$CACHY_PATCH_DIR" ]; then
+    echo "ERRORE FATALE: Discrepanza dinamica. Trovato $KERNEL_VER ma mancano le patch CachyOS!"
+    exit 1
 fi
-
-echo ">>> [BEDROCK SECURE] L'autenticità del Kernel è garantita tramite crittografia TLS..."
-
-echo ">>> Estrazione del Kernel Certificato..."
-tar -xf "$KERNEL_LATEST_TARBALL"
-cd "$KERNEL_EXTRACT_DIR"
-
-# Salviamo la versione esatta per l'idempotency check nella Action
-echo "$KERNEL_EXTRACT_DIR" > ../.kernel_version
-
-
-mkdir -p .patches
 
 # [BEDROCK] Universal Domain Router
-# Assicura che la patch migliore (in base al dominio) venga applicata per prima
 route_patch() {
     local patch="$1"
     local source="$2"
@@ -141,286 +145,206 @@ route_patch() {
         domain="99"
         case "$source" in tkg) priority="1" ;; cachyos) priority="2" ;; xanmod) priority="3" ;; liquorix) priority="4" ;; clear) priority="5" ;; esac
     fi
-    echo "${domain}_${priority}_${source}_${patch}"
+    echo "bedrock-${domain}_${priority}_${source}_${patch}"
 }
 
-echo ">>> [TIME-TRAVEL] Sincronizzazione dinamica Clear Linux..."
+echo ">>> Scansione e smistamento delle patch in SOURCES/ con Universal Domain Router..."
+if [ -d "$CACHY_PATCH_DIR" ]; then
+    for patch in "$CACHY_PATCH_DIR"/*.patch; do
+        cp "$patch" "SOURCES/$(route_patch "$(basename "$patch")" "cachyos")"
+    done
+fi
+
+for repo in xanmod liquorix zen garuda tkg; do
+    if [ -d "/tmp/${repo}-patches" ]; then
+        find "/tmp/${repo}-patches" -name "*.patch" -type f | while read patch_file; do
+            cp "$patch_file" "SOURCES/$(route_patch "$(basename "$patch_file")" "$repo")"
+        done
+    fi
+done
+
+echo ">>> Sincronizzazione dinamica Clear Linux con Kernel $KERNEL_VER..."
 pushd /tmp/clearlinux-patches > /dev/null
-KERNEL_VER_ESC="${TARGET_KERNEL_VER//./\\.}"
+KERNEL_VER_ESC="${KERNEL_VER//./\\.}"
 CLEAR_COMMIT=$(git log --grep="update.*${KERNEL_VER_ESC}\\b" -n 1 --format="%H" || true)
 if [ -n "$CLEAR_COMMIT" ]; then
-    echo "    Allineamento Clear Linux al commit: $CLEAR_COMMIT"
+    echo ">>> Allineamento Clear Linux al commit: $CLEAR_COMMIT"
     git checkout -q "$CLEAR_COMMIT"
 else
-    echo "    ATTENZIONE: Nessun commit specifico trovato. Utilizzo l'head di main."
+    echo ">>> ATTENZIONE: Nessun commit specifico trovato per $KERNEL_VER. Utilizzo l'head di main."
 fi
+popd > /dev/null
+
+echo ">>> Pulizia patch obsolete (ntsync è upstream in 6.14)..."
+rm -f SOURCES/*ntsync*.patch || true
+
+echo ">>> Aggiunta patch chirurgiche Clear Linux..."
 for patch_name in \
     "0001-sched-migrate.patch" \
     "0001-sched-numa-Initialise-numa_migrate_retry.patch" \
     "0001-mm-memcontrol-add-some-branch-hints-based-on-gcov-an.patch" \
     "0002-sched-core-add-some-branch-hints-based-on-gcov-analy.patch" \
     "0170-sched-Add-unlikey-branch-hints-to-several-system-cal.patch"; do
-    if [ -f "$patch_name" ]; then
-        cp "$patch_name" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/$(route_patch "$patch_name" "clear")" || true
+    
+    if [ -f "/tmp/clearlinux-patches/$patch_name" ]; then
+        cp "/tmp/clearlinux-patches/$patch_name" "SOURCES/$(route_patch "$patch_name" "clear")"
     fi
 done
-popd > /dev/null
 
-echo ">>> [TIME-TRAVEL] Sincronizzazione dinamica XanMod..."
-if [ -d "/tmp/xanmod-patches" ]; then
-    pushd /tmp/xanmod-patches > /dev/null
-    XANMOD_COMMIT=$(git log --format="%H" -n 1 -- eol/linux-${TARGET_KERNEL_VER}.y-xanmod linux-${TARGET_KERNEL_VER}.y-xanmod || true)
-    if [ -n "$XANMOD_COMMIT" ]; then
-        echo "    Allineamento XanMod al commit: $XANMOD_COMMIT"
-        git checkout -q "$XANMOD_COMMIT"
-    fi
-    if [ -d "linux-${TARGET_KERNEL_VER}.y-xanmod" ]; then
-        for p in linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/$(route_patch "$(basename "$p")" "xanmod")"; done || true
-    elif [ -d "eol/linux-${TARGET_KERNEL_VER}.y-xanmod" ]; then
-        for p in eol/linux-${TARGET_KERNEL_VER}.y-xanmod/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/$(route_patch "$(basename "$p")" "xanmod")"; done || true
-    fi
-    popd > /dev/null
-fi
+echo ">>> Scrittura script di applicazione e validazione AST/Kbuild in /tmp/patch_apply.txt..."
+> /tmp/patch_apply.txt
+cat << 'EOF' >> /tmp/patch_apply.txt
+echo ">>> [BEDROCK] Inizio applicazione matrice universale Kbuild/AST per le patch..."
+cp configs/kernel-x86_64.config .config
+make olddefconfig
+make prepare
 
-echo ">>> [TIME-TRAVEL] Sincronizzazione dinamica Liquorix..."
-if [ -d "/tmp/liquorix-patches" ]; then
-    pushd /tmp/liquorix-patches > /dev/null
-    git fetch origin "refs/heads/${TARGET_KERNEL_VER}/master:refs/heads/${TARGET_KERNEL_VER}/master" --depth 1 || true
-    if git show-ref --verify --quiet "refs/heads/${TARGET_KERNEL_VER}/master"; then
-        echo "    Allineamento Liquorix al branch: ${TARGET_KERNEL_VER}/master"
-        git checkout -q "${TARGET_KERNEL_VER}/master"
-        # Liquorix patches (contains Zen)
-        for p in linux-liquorix/debian/patches/zen/*.patch; do cp "$p" "$WORKSPACE_DIR/$KERNEL_EXTRACT_DIR/.patches/$(route_patch "$(basename "$p")" "liquorix")"; done || true
-    else
-        echo "    ATTENZIONE: Branch ${TARGET_KERNEL_VER}/master non trovato in Liquorix."
-    fi
-    popd > /dev/null
-fi
-
-echo ">>> Sincronizzazione CachyOS e Linux-TKG..."
-if [ -d "/tmp/cachyos-patches/$TARGET_KERNEL_VER/all" ]; then
-    for p in /tmp/cachyos-patches/$TARGET_KERNEL_VER/all/*.patch; do cp "$p" .patches/$(route_patch "$(basename "$p")" "cachyos"); done || true
-fi
-if [ -d "/tmp/tkg-patches/linux-tkg-patches/$TARGET_KERNEL_VER" ]; then
-    for p in /tmp/tkg-patches/linux-tkg-patches/$TARGET_KERNEL_VER/*.patch; do cp "$p" .patches/$(route_patch "$(basename "$p")" "tkg"); done || true
-fi
-
-# Genera un default Kconfig per permettere a Kbuild di funzionare (ci serve per AST validazione)
-make defconfig
-
-echo ">>> [BEDROCK] Inizio applicazione matrice universale AST (Holy Grail)..."
-for patch in $(ls .patches/*.patch | sort -V); do
+for patch in %{_sourcedir}/bedrock-*.patch; do
     if [ ! -f "$patch" ]; then continue; fi
     echo "-> Test di compatibilità per $(basename "$patch")..."
     
-    APPLIED=0
-    FUZZ=0
-    # Fuzz 0 attempt
-    if patch -p1 -F 0 --force --dry-run --silent < "$patch"; then
-        patch -p1 -F 0 --force < "$patch" > /dev/null || true
-        echo "   [SUCCESS] Patch applicata a Fuzz 0."
-        APPLIED=1
-        FUZZ=0
+    if patch -p1 -F 2 --force --dry-run --silent < "$patch"; then
+        patch -p1 -F 2 --force < "$patch" > /dev/null || true
+        echo "   [SUCCESS] Patch applicata a Fuzz 2."
     else
-        echo "   [WARNING] Fallito Fuzz 0. Tento Fuzz 3..."
-        if patch -p1 -F 3 --force --dry-run --silent < "$patch"; then
+        echo "   [WARNING] Fallito Fuzz 2. Tento Fuzz 3..."
+        NON_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep -v '\.c$' || true)
+        if [ -n "$NON_C_FILES" ]; then
+             echo "   [SKIP] La patch tocca file non-C. Impossibile validare con AST. Fuzz 3 vietato. Scartata."
+        elif patch -p1 -F 3 --force --dry-run --silent < "$patch"; then
             patch -p1 -F 3 --force < "$patch" > /dev/null || true
-            echo "   [SUCCESS] Patch applicata a Fuzz 3."
-            APPLIED=1
-            FUZZ=3
-        else
-            echo "   [SKIP] Conflitto strutturale (Fallito Fuzz sia 0 che 3). Patch scartata."
-            continue
-        fi
-    fi
-
-    if [ $APPLIED -eq 1 ]; then
-        # Step 1: Validate Kconfig/Makefile integrity if touched
-        KCONFIG_FAILED=0
-        if grep -E '^\+\+\+ b/(Kconfig|Makefile|.*/Kconfig|.*/Makefile)' "$patch" >/dev/null 2>&1; then
-            echo "   [KBUILD VALIDATION] Verifico integrità dell'albero Kconfig..."
-            cp .config .config.bak
-            if ! make allnoconfig >/dev/null 2>&1; then
-                KCONFIG_FAILED=1
-                echo "   [KBUILD FATAL] La patch ha corrotto la struttura Kconfig/Makefile!"
-            fi
-            mv .config.bak .config
-        fi
-        
-        # Always run olddefconfig to balance the tree and prevent syncconfig hangs
-        make olddefconfig >/dev/null 2>&1
-        
-        if [ $KCONFIG_FAILED -eq 1 ]; then
-            echo "   [ROLLBACK] Conflitto strutturale (Kbuild). Scarto la patch."
-            patch -p1 -R -F $FUZZ --force < "$patch" > /dev/null || true
-            continue
-        fi
-        
-        # Step 2: AST Validation for existing C files
-        echo "   [AST VALIDATION] Controllo purezza albero sintattico sorgenti C/H modificati..."
-        MODIFIED_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep -E '\.(c|h)$' || true)
-        AST_FAILED=0
-        for c_file in $MODIFIED_C_FILES; do
-            if [ -f "$c_file" ]; then
-                if echo "$c_file" | grep -q '\.c$'; then
-                    o_file="${c_file%.c}.o"
-                    # Dynamic Extraction of CFLAGS from Kbuild (Bedrock Holy Grail)
-                    CFLAGS=$(make CC=clang V=1 "$o_file" -n </dev/null 2>/dev/null | grep -E "clang.*-c.*$c_file" | head -n 1 | sed "s/.*clang //; s/-c.*//" || true)
-                    if [ -n "$CFLAGS" ]; then
-                        if ! clang -fsyntax-only $CFLAGS "$c_file" >/dev/null 2>&1; then
-                            AST_FAILED=1
-                            echo "   [AST FATAL] Clang ha fallito la validazione sintattica di $c_file!"
-                            break
-                        fi
+            echo "   [AST VALIDATION] Controllo purezza albero sintattico tramite Kbuild Assembly..."
+            MODIFIED_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep '\.c$' || true)
+            AST_FAILED=0
+            for c_file in $MODIFIED_C_FILES; do
+                if [ -f "$c_file" ]; then
+                    target_s="${c_file%.c}.s"
+                    if ! make "$target_s" >/dev/null 2>&1; then
+                        AST_FAILED=1
+                        echo "   [AST FATAL] Kbuild ha fallito la compilazione AST di $c_file!"
+                        break
                     fi
                 fi
+            done
+            if [ $AST_FAILED -eq 1 ]; then
+                echo "   [ROLLBACK] Conflitto sintattico rilevato! Scarto la patch."
+                patch -p1 -R -F 3 --force < "$patch" > /dev/null || true
+            else
+                echo "   [SUCCESS] Patch fusa e validata nativamente tramite AST Kbuild."
             fi
-        done
-        
-        if [ $AST_FAILED -eq 1 ]; then
-            echo "   [ROLLBACK] Conflitto sintattico rilevato! Scarto la patch."
-            patch -p1 -R -F $FUZZ --force < "$patch" > /dev/null || true
-            continue
-        fi
-
-        # Step 3: Fast Subsystem Compilation (The True Holy Grail)
-        echo "   [SUBSYSTEM VALIDATION] Compilazione incrementale dei sottosistemi modificati..."
-        SUBSYSTEMS=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | cut -d/ -f1 | sort -u | grep -E '^(kernel|mm|fs|net|arch)$' || true)
-        SUB_FAILED=0
-        for sub in $SUBSYSTEMS; do
-            if [ -d "$sub" ]; then
-                if ! make -j$(nproc) "$sub/" </dev/null >/dev/null 2>&1; then
-                    SUB_FAILED=1
-                    echo "   [SUBSYSTEM FATAL] Compilazione fallita nel sottosistema $sub!"
-                    break
-                fi
-            fi
-        done
-
-        if [ $SUB_FAILED -eq 1 ]; then
-            echo "   [ROLLBACK] Conflitto di sottosistema rilevato! Scarto la patch."
-            patch -p1 -R -F $FUZZ --force < "$patch" > /dev/null || true
         else
-            echo "   [SUCCESS] Patch fusa e validata nativamente tramite AST Clang, Kbuild & Subsystem Make."
+            echo "   [SKIP] Conflitto strutturale (Fallito Fuzz 3). Patch scartata."
         fi
     fi
 done
+
+echo ">>> [BEDROCK PGO FIX] Filtering PGO flags from EFI libstub and boot Makefiles..."
+echo 'KBUILD_CFLAGS := $(filter-out -fprofile-use=% -fprofile-correction -Wno-missing-profile -fgraphite-identity -floop-nest-optimize, $(KBUILD_CFLAGS))' >> drivers/firmware/efi/libstub/Makefile
+echo 'KBUILD_CFLAGS := $(filter-out -fprofile-use=% -fprofile-correction -Wno-missing-profile -fgraphite-identity -floop-nest-optimize, $(KBUILD_CFLAGS))' >> arch/x86/boot/Makefile
+echo 'KBUILD_CFLAGS := $(filter-out -fprofile-use=% -fprofile-correction -Wno-missing-profile -fgraphite-identity -floop-nest-optimize, $(KBUILD_CFLAGS))' >> arch/x86/boot/compressed/Makefile
+EOF
+
+awk '/# END OF PATCH APPLICATIONS/{system("cat /tmp/patch_apply.txt")}1' SPECS/kernel.spec > SPECS/kernel.spec.new
+mv SPECS/kernel.spec.new SPECS/kernel.spec
 
 echo "========================================================="
 echo " FASE 3: TUNING KCONFIG (Bedrock Naturale Dinamico)"
 echo "========================================================="
-# Disattivazione massiccia e mirata del Debug (Prestazioni Estreme)
-for cfg in DEBUG_KERNEL SLUB_DEBUG PM_DEBUG PM_ADVANCED_DEBUG ACPI_DEBUG SCHED_DEBUG LATENCYTOP DEBUG_PREEMPT PROVE_LOCKING LOCK_STAT KASAN DEBUG_INFO DEBUG_INFO_BTF DEBUG_FS; do
-    ./scripts/config --disable $cfg
+for conf in SOURCES/kernel-x86_64*.config; do
+    sed -i -E '/^(# )?CONFIG_(HZ|HZ_1000|HZ_300|HZ_250|HZ_100|DEFAULT_BBR|TCP_CONG_BBR|DEFAULT_CUBIC|SCHED_BORE|MODULE_COMPRESS_ZSTD|MODULE_COMPRESS_XZ|LRU_GEN|LRU_GEN_ENABLED|GENERIC_CPU|GENERIC_CPU3|X86_64_VERSION|CC_OPTIMIZE_FOR_PERFORMANCE_O3|LTO_CLANG_THIN|DEBUG_INFO|DEBUG_INFO_NONE|DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT|NTSYNC|RUST|VIRTIO_PCI|VIRTIO_CONSOLE|NET_9P|NET_9P_VIRTIO|9P_FS|HIBERNATION|CRASH_DUMP|COREDUMP|KEXEC|KEXEC_FILE|PROC_KCORE|COMPAT_VDSO|BINFMT_MISC|SLAB_FREELIST_RANDOM|SLAB_FREELIST_HARDENED|HARDENED_USERCOPY|HARDENED_USERCOPY_FALLBACK|FORTIFY_SOURCE|INIT_ON_ALLOC_DEFAULT_ON|INIT_ON_FREE_DEFAULT_ON|RANDOMIZE_BASE|RANDOMIZE_MEMORY|PAGE_TABLE_ISOLATION|BPF_UNPRIV_DEFAULT_OFF|SECURITY_DMESG_RESTRICT|USERFAULTFD|MODIFY_LDT_SYSCALL|LEGACY_VSYSCALL_NONE|LEGACY_VSYSCALL_EMULATE|LEGACY_VSYSCALL_XONLY|STRICT_DEVMEM|IO_STRICT_DEVMEM|DEVKMEM|ACPI_CUSTOM_METHOD|BUG_ON_DATA_CORRUPTION|SCHED_STACK_END_CHECK|PANIC_ON_OOPS|SECURITY_YAMA|SECURITY_LOCKDOWN_LSM|SECURITY_LOCKDOWN_LSM_EARLY|DRM_NOUVEAU)( |=)/d' "$conf"
+
+    cat << 'EOF' >> "$conf"
+# --- ERMETE FORGE: ZEN/LIQUORIX TUNING ---
+CONFIG_HZ_1000=y
+CONFIG_HZ=1000
+# CONFIG_HZ_300 is not set
+# CONFIG_HZ_250 is not set
+# CONFIG_HZ_100 is not set
+
+CONFIG_DEFAULT_BBR=y
+CONFIG_TCP_CONG_BBR=y
+# CONFIG_DEFAULT_CUBIC is not set
+
+CONFIG_SCHED_BORE=y
+
+CONFIG_MODULE_COMPRESS_ZSTD=y
+# CONFIG_MODULE_COMPRESS_XZ is not set
+
+CONFIG_LRU_GEN=y
+CONFIG_LRU_GEN_ENABLED=y
+
+CONFIG_GENERIC_CPU=y
+CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=y
+# CONFIG_LTO_CLANG_THIN is not set
+
+CONFIG_DEBUG_INFO=n
+CONFIG_DEBUG_INFO_NONE=y
+
+CONFIG_NTSYNC=y
+# CONFIG_RUST is not set
+
+# --- ERMETE FORGE: PGO QEMU 9PFS BOOT ---
+CONFIG_VIRTIO_PCI=y
+CONFIG_VIRTIO_CONSOLE=y
+CONFIG_NET_9P=y
+CONFIG_NET_9P_VIRTIO=y
+CONFIG_9P_FS=y
+# CONFIG_DRM_NOUVEAU is not set
+
+# --- ERMETE FORGE: TAILS OS AMNESIA & ANTI-FORENSICS ---
+# CONFIG_HIBERNATION is not set
+# CONFIG_CRASH_DUMP is not set
+# CONFIG_COREDUMP is not set
+# CONFIG_KEXEC is not set
+# CONFIG_KEXEC_FILE is not set
+# CONFIG_PROC_KCORE is not set
+# CONFIG_COMPAT_VDSO is not set
+# CONFIG_BINFMT_MISC is not set
+
+# --- ERMETE FORGE: 64 PILASTRI KSPP HARDENING ---
+CONFIG_SLAB_FREELIST_RANDOM=y
+CONFIG_SLAB_FREELIST_HARDENED=y
+CONFIG_HARDENED_USERCOPY=y
+# CONFIG_HARDENED_USERCOPY_FALLBACK is not set
+CONFIG_FORTIFY_SOURCE=y
+CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+CONFIG_INIT_ON_FREE_DEFAULT_ON=y
+CONFIG_RANDOMIZE_BASE=y
+CONFIG_RANDOMIZE_MEMORY=y
+CONFIG_PAGE_TABLE_ISOLATION=y
+CONFIG_BPF_UNPRIV_DEFAULT_OFF=y
+CONFIG_SECURITY_DMESG_RESTRICT=y
+# CONFIG_USERFAULTFD is not set
+# CONFIG_MODIFY_LDT_SYSCALL is not set
+CONFIG_LEGACY_VSYSCALL_NONE=y
+# CONFIG_LEGACY_VSYSCALL_EMULATE is not set
+# CONFIG_LEGACY_VSYSCALL_XONLY is not set
+CONFIG_STRICT_DEVMEM=y
+CONFIG_IO_STRICT_DEVMEM=y
+# CONFIG_DEVKMEM is not set
+# CONFIG_ACPI_CUSTOM_METHOD is not set
+CONFIG_BUG_ON_DATA_CORRUPTION=y
+CONFIG_SCHED_STACK_END_CHECK=y
+CONFIG_PANIC_ON_OOPS=y
+CONFIG_SECURITY_YAMA=y
+CONFIG_SECURITY_LOCKDOWN_LSM=y
+CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y
+EOF
 done
 
-# Schedulazione e Responsività Desktop (Preempt Estremo)
-./scripts/config --enable PREEMPT
-./scripts/config --disable PREEMPT_VOLUNTARY
-./scripts/config --disable PREEMPT_NONE
-
-# CPU e Tick
-./scripts/config --enable HZ_1000
-./scripts/config --set-val HZ 1000
-./scripts/config --disable HZ_300
-./scripts/config --disable HZ_250
-./scripts/config --disable HZ_100
-./scripts/config --enable SCHED_BORE
-
-# Rete (BBR + FQ)
-./scripts/config --enable TCP_CONG_BBR
-./scripts/config --enable DEFAULT_BBR
-./scripts/config --disable DEFAULT_CUBIC
-./scripts/config --enable NET_SCH_FQ
-./scripts/config --enable DEFAULT_FQ
-
-# Compressione Moduli (ZSTD puro)
-./scripts/config --enable MODULE_COMPRESS_ZSTD
-./scripts/config --disable MODULE_COMPRESS_XZ
-./scripts/config --disable MODULE_COMPRESS_GZIP
-
-# RAM e Performance
-./scripts/config --enable LRU_GEN
-./scripts/config --enable LRU_GEN_ENABLED
-
-# Ottimizzazione CPU Arch (Nativa V3)
-./scripts/config --disable GENERIC_CPU
-./scripts/config --enable GENERIC_CPU3
-./scripts/config --enable X86_64_VERSION=3
-
-# Ottimizzazione Compilatore
-./scripts/config --enable CC_OPTIMIZE_FOR_PERFORMANCE_O3
-./scripts/config --disable LTO_CLANG_THIN
-./scripts/config --enable DEBUG_INFO_NONE
-
-echo ">>> [BEDROCK] Iniezione dei 64 Pilastri KSPP e Ottimizzazioni Tails OS..."
-# TAILS OS: Amnesia e Anti-Forensics (Nessun dump o traccia RAM su disco)
-./scripts/config --disable HIBERNATION
-./scripts/config --disable CRASH_DUMP
-./scripts/config --disable COREDUMP
-./scripts/config --disable KEXEC
-./scripts/config --disable KEXEC_FILE
-./scripts/config --disable PROC_KCORE
-./scripts/config --disable COMPAT_VDSO
-./scripts/config --disable BINFMT_MISC
-
-# 64 PILASTRI (KSPP): Protezione Memoria (Slub/Slab Hardening)
-./scripts/config --enable SLAB_FREELIST_RANDOM
-./scripts/config --enable SLAB_FREELIST_HARDENED
-./scripts/config --enable HARDENED_USERCOPY
-./scripts/config --disable HARDENED_USERCOPY_FALLBACK
-./scripts/config --enable FORTIFY_SOURCE
-./scripts/config --enable INIT_ON_ALLOC_DEFAULT_ON
-./scripts/config --enable INIT_ON_FREE_DEFAULT_ON
-
-# 64 PILASTRI (KSPP): KASLR e Isolamento
-./scripts/config --enable RANDOMIZE_BASE
-./scripts/config --enable RANDOMIZE_MEMORY
-./scripts/config --enable PAGE_TABLE_ISOLATION
-
-# 64 PILASTRI (KSPP): Superficie di Attacco e Syscall
-./scripts/config --enable BPF_UNPRIV_DEFAULT_OFF
-./scripts/config --enable SECURITY_DMESG_RESTRICT
-./scripts/config --disable USERFAULTFD
-./scripts/config --disable MODIFY_LDT_SYSCALL
-./scripts/config --enable LEGACY_VSYSCALL_NONE
-./scripts/config --disable LEGACY_VSYSCALL_EMULATE
-./scripts/config --disable LEGACY_VSYSCALL_XONLY
-
-# 64 PILASTRI (KSPP): Accesso Hardware
-./scripts/config --enable STRICT_DEVMEM
-./scripts/config --enable IO_STRICT_DEVMEM
-./scripts/config --disable DEVKMEM
-./scripts/config --disable ACPI_CUSTOM_METHOD
-
-# 64 PILASTRI (KSPP): Integrità e Reazione
-./scripts/config --enable BUG_ON_DATA_CORRUPTION
-./scripts/config --enable SCHED_STACK_END_CHECK
-./scripts/config --enable PANIC_ON_OOPS
-./scripts/config --enable SECURITY_YAMA
-./scripts/config --enable SECURITY_LOCKDOWN_LSM
-./scripts/config --enable SECURITY_LOCKDOWN_LSM_EARLY
-
-./scripts/config --enable NTSYNC
-./scripts/config --disable RUST
-
-./scripts/config --enable VIRTIO_PCI
-./scripts/config --enable VIRTIO_CONSOLE
-./scripts/config --enable NET_9P
-./scripts/config --enable NET_9P_VIRTIO
-./scripts/config --enable 9P_FS
-./scripts/config --disable DRM_NOUVEAU
-make olddefconfig
-
 echo ">>> Generazione ~/.rpmmacros locale esclusivo per KERNEL..."
-cat << 'MCR' > ~/.rpmmacros
-%_smp_mflags %{nil}
-%_enable_debug_packages 0
-%debug_package %{nil}
+if [ -f ../../config/rpmmacros ]; then
+    cat ../../config/rpmmacros > ~/.rpmmacros
+elif [ -f config/rpmmacros ]; then
+    cat config/rpmmacros > ~/.rpmmacros
+fi
+
+cat << 'EOF' >> ~/.rpmmacros
 %_with_vanilla 1
 %buildid .chimera
 %toolchain gcc
 %optflags %{__global_compiler_flags} -march=x86-64-v3 -pipe -Wno-error
+%kcflags -march=x86-64-v3 -pipe -Wno-error
 
 %_without_selftests 1
 %_without_tools 1
@@ -433,15 +357,26 @@ cat << 'MCR' > ~/.rpmmacros
 %_without_doc 1
 %_binary_payload w1.zstdio
 %_source_payload w1.zstdio
-MCR
+EOF
 
 echo "========================================================="
-echo " PREPARAZIONE COMPLETATA."
-echo " Il Kernel è pronto nella cartella $(pwd)"
-echo " Usa 'make binrpm-pkg' per compilare un RPM nativo upstream."
+echo " FASE 4: PREPARAZIONE ALBERO SORGENTE (%prep)"
 echo "========================================================="
+echo ">>> Esecuzione rpmbuild -bp per scompattare, applicare patch e validare l'albero..."
+spectool -g -R SPECS/kernel.spec
+dnf builddep -y SPECS/kernel.spec
+rpmbuild -bp SPECS/kernel.spec --target x86_64
 
-./scripts/config --set-str SYSTEM_TRUSTED_KEYS ""
-./scripts/config --set-str SYSTEM_REVOCATION_KEYS ""
-./scripts/config --disable DEBUG_INFO_BTF
-make olddefconfig
+echo ">>> Rilevamento della directory di build del kernel preparata..."
+KERNEL_BUILD_DIR=$(find "$WORKSPACE_DIR/BUILD" -maxdepth 3 -name "Makefile" -exec grep -l "VERSION =" {} + | head -n 1 | xargs dirname)
+if [ -z "$KERNEL_BUILD_DIR" ]; then
+    echo "ERRORE FATALE: Directory di build del kernel non trovata dopo rpmbuild -bp!"
+    exit 1
+fi
+REL_DIR=$(realpath --relative-to="$WORKSPACE_DIR/BUILD" "$KERNEL_BUILD_DIR")
+echo "$REL_DIR" > "$WORKSPACE_DIR/BUILD/.kernel_version"
+echo ">>> Albero del kernel preparato e registrato in BUILD/.kernel_version: $REL_DIR"
+
+echo "========================================================="
+echo " PREPARAZIONE CHIMERA COMPLETATA."
+echo "========================================================="
