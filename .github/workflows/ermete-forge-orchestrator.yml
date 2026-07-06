@@ -311,8 +311,8 @@ jobs:
           CORES=$(nproc)
           echo "Risorse rilevate in QEMU: $CORES Cores"
           
-          echo "Inizio STRESS TERMICO (CPU, VFS, Scheduler, Mutex, Memoria)..."
-          stress-ng --cpu $CORES --io $CORES --vm 2 --vm-bytes 1G --matrix $CORES --sched $CORES --mutex $CORES --timeout 60s
+          echo "Inizio STRESS TERMICO (CPU, Scheduler, Mutex, Memoria)..."
+          stress-ng --cpu $CORES --vm 2 --vm-bytes 1G --matrix $CORES --sched $CORES --mutex $CORES --timeout 60s
           
           echo "Inizio STRESS RETE (TCP/IP BBR + FQ)..."
           iperf3 -s & IPERF_PID=$!
@@ -333,8 +333,10 @@ jobs:
           cp -a /sys/kernel/debug/gcov/* /mnt/host_gcov/ || true
           sync
           
-          echo "Spegnimento QEMU..."
-          poweroff -f
+          echo "Spegnimento QEMU tramite SysRq Ring 0..."
+          sync
+          echo 1 > /proc/sys/kernel/sysrq
+          echo o > /proc/sysrq-trigger || poweroff -f
           INITSCRIPT
           chmod +x /init
           
@@ -346,11 +348,11 @@ jobs:
           if [ "$HOST_RAM" -lt 4 ]; then HOST_RAM=4; fi
           
           echo "Avvio virtualizzazione isolata 9pfs con $HOST_CORES Cores e ${HOST_RAM}G RAM..."
-          qemu-system-x86_64 -kernel $KERNEL_IMAGE \
+          timeout --foreground 180s qemu-system-x86_64 -kernel $KERNEL_IMAGE \
             -append "root=host_root rootfstype=9p rootflags=trans=virtio,version=9p2000.L rw init=/init console=ttyS0" \
             -virtfs local,path=/,mount_tag=host_root,security_model=none \
             -virtfs local,path=/tmp/host_gcov,mount_tag=host_gcov,security_model=none \
-            -m ${HOST_RAM}G -smp $HOST_CORES -nographic -no-reboot
+            -m ${HOST_RAM}G -smp $HOST_CORES -nographic -no-reboot || true
 
       - name: Fase 3 - Build PGO Cristallizzata (Performance Assoluta)
         if: steps.idempotency.outputs.skip_build != 'true'

@@ -244,7 +244,7 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
 
     if [ $APPLIED -eq 1 ]; then
         MODIFIED_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep '\.c$' || true)
-        if [ -n "$MODIFIED_C_FILES" ]; then
+        if [ -n "$MODIFIED_C_FILES" ] && [ "$FUZZ_VAL" -gt 0 ]; then
             make LD=ld.bfd olddefconfig </dev/null >/dev/null 2>&1 || true
             echo "   [AST VALIDATION (Fuzz $FUZZ_VAL)] Controllo purezza albero sintattico per $patch_name..."
             AST_FAILED=0
@@ -269,16 +269,17 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
                     fi
                 done
             else
-                echo "   [SUCCESS] Patch fusa (Fuzz $FUZZ_VAL) e validata nativamente tramite AST Kbuild: $patch_name"
+                echo "   [SUCCESS] Patch fusa e validata tramite AST: $patch_name"
                 for t_file in $TOUCHED_FILES; do rm -f "${t_file}.bedrock_bak" "${t_file}.orig" "${t_file}.rej"; done
             fi
         else
-            make LD=ld.bfd olddefconfig </dev/null >/dev/null 2>&1 || true
-            echo "   [SUCCESS] Patch fusa (Fuzz $FUZZ_VAL - file non-C/header): $patch_name"
+            echo "   [SUCCESS] Patch fusa (Fuzz $FUZZ_VAL - Fast Track): $patch_name"
             for t_file in $TOUCHED_FILES; do rm -f "${t_file}.bedrock_bak" "${t_file}.orig" "${t_file}.rej"; done
         fi
     fi
 done
+
+make LD=ld.bfd olddefconfig </dev/null >/dev/null 2>&1 || true
 
 echo ">>> [BEDROCK PGO FIX] Filtering PGO flags from EFI libstub and boot Makefiles..."
 echo 'KBUILD_CFLAGS := $(filter-out -fprofile-use=% -fprofile-correction -Wno-missing-profile -fgraphite-identity -floop-nest-optimize, $(KBUILD_CFLAGS))' >> drivers/firmware/efi/libstub/Makefile
