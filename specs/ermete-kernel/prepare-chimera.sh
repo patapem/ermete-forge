@@ -214,25 +214,24 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
     
     APPLIED=0
     FUZZ_VAL=0
-    if patch -p1 -F 0 --force --dry-run --silent < "$patch"; then
-        patch -p1 -F 0 --force < "$patch" > /dev/null || true
-        APPLIED=1
-        FUZZ_VAL=0
-    elif patch -p1 -F 2 --force --dry-run --silent < "$patch"; then
-        patch -p1 -F 2 --force < "$patch" > /dev/null || true
-        APPLIED=1
-        FUZZ_VAL=2
-    else
-        NON_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep -v '\.c$' || true)
-        if [ -n "$NON_C_FILES" ]; then
-             echo "   [SKIP] La patch richiede Fuzz 3 e tocca file non-C. Impossibile validare con AST. Scartata."
-        elif patch -p1 -F 3 --force --dry-run --silent < "$patch"; then
-            patch -p1 -F 3 --force < "$patch" > /dev/null || true
-            APPLIED=1
-            FUZZ_VAL=3
-        else
-            echo "   [SKIP] Conflitto strutturale (Fallito Fuzz 3). Patch scartata."
+    NON_C_FILES=""
+    for f in 0 1 2 3; do
+        if [ $f -eq 3 ]; then
+            NON_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep -v '\.c$' || true)
+            if [ -n "$NON_C_FILES" ]; then
+                 echo "   [SKIP] La patch richiede Fuzz 3 e tocca file non-C. Impossibile validare con AST. Scartata."
+                 break
+            fi
         fi
+        if patch -p1 -F $f --force --dry-run --silent < "$patch"; then
+            patch -p1 -F $f --force < "$patch" > /dev/null || true
+            APPLIED=1
+            FUZZ_VAL=$f
+            break
+        fi
+    done
+    if [ $APPLIED -eq 0 ] && [ -z "$NON_C_FILES" ]; then
+        echo "   [SKIP] Conflitto strutturale (Falliti Fuzz 0, 1, 2 e 3). Patch scartata."
     fi
 
     if [ $APPLIED -eq 1 ]; then
