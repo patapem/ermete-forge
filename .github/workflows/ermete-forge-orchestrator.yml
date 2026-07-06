@@ -428,7 +428,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /var/cache/akmods/nvidia/
-          key: rpm-nvidia-${{ steps.kernel.outputs.kernel_ver }}
+          key: rpm-nvidia-bedrock1-${{ steps.kernel.outputs.kernel_ver }}
       - name: Install Dependencies and Build
         if: steps.cache.outputs['cache-hit'] != 'true'
         run: |
@@ -457,7 +457,7 @@ jobs:
           
           # [BEDROCK UNIFICATION] Download userspace NVIDIA drivers, Wayland EGL, persistenced, and container toolkit
           # into the micro-container so they are encapsulated natively without remote DNF calls during OSTree build.
-          dnf download -y --destdir=/var/cache/akmods/nvidia/ \
+          dnf download -y --resolve --alldeps --destdir=/var/cache/akmods/nvidia/ \
             nvidia-driver \
             nvidia-driver-libs \
             nvidia-driver-cuda \
@@ -465,12 +465,15 @@ jobs:
             nvidia-persistenced \
             nvidia-settings \
             egl-wayland \
+            egl-gbm \
+            egl-wayland2 \
+            xorg-x11-drv-nvidia-power \
             golang-github-nvidia-container-toolkit || true
 
-          # [BEDROCK CHECK] Se l'RPM non esiste, facciamo fallire esplicitamente lo step 
-          # per evitare che GitHub Actions salvi una cache vuota "corrotta".
-          ls /var/cache/akmods/nvidia/*.rpm || { 
-            echo "ERRORE CRITICO: RPM NVIDIA non generato! Pulisco la directory per invalidare la cache."; 
+          # [BEDROCK CHECK] Se l'RPM non esiste o mancano i driver userspace, facciamo fallire esplicitamente lo step 
+          # per evitare che GitHub Actions salvi una cache vuota o incompleta "corrotta".
+          ls /var/cache/akmods/nvidia/kmod-nvidia*.rpm && ls /var/cache/akmods/nvidia/nvidia-driver-*.rpm || { 
+            echo "ERRORE CRITICO: RPM NVIDIA (kmod o userspace driver) non generati/scaricati! Pulisco la directory per invalidare la cache."; 
             rm -rf /var/cache/akmods/nvidia/*; 
             exit 1; 
           }
