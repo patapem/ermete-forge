@@ -257,7 +257,7 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
 
     if [ $APPLIED -eq 1 ]; then
         MODIFIED_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep '\.c$' || true)
-        if [ -n "$MODIFIED_C_FILES" ] && [ "$FUZZ_VAL" -gt 0 ]; then
+        if [ -n "$MODIFIED_C_FILES" ]; then
             make LD=ld.bfd olddefconfig </dev/null >/dev/null 2>&1 || true
             echo "   [AST VALIDATION (Fuzz $FUZZ_VAL)] Controllo purezza albero sintattico per $patch_name..."
             AST_FAILED=0
@@ -286,7 +286,7 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
                 for t_file in $TOUCHED_FILES; do rm -f "${t_file}.bedrock_bak" "${t_file}.orig" "${t_file}.rej"; done
             fi
         else
-            echo "   [SUCCESS] Patch fusa (Fuzz $FUZZ_VAL - Fast Track): $patch_name"
+            echo "   [SUCCESS] Patch fusa (Fuzz $FUZZ_VAL - Non-C Fast Track): $patch_name"
             for t_file in $TOUCHED_FILES; do rm -f "${t_file}.bedrock_bak" "${t_file}.orig" "${t_file}.rej"; done
         fi
     fi
