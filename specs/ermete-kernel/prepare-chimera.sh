@@ -212,6 +212,11 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
     patch_name=$(basename "$patch")
     echo "-> Test di compatibilità per $patch_name..."
     
+    TOUCHED_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' || true)
+    for t_file in $TOUCHED_FILES; do
+        if [ -f "$t_file" ]; then cp -p "$t_file" "${t_file}.bedrock_bak"; fi
+    done
+    
     APPLIED=0
     FUZZ_VAL=0
     NON_C_FILES=""
@@ -230,8 +235,11 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
             break
         fi
     done
-    if [ $APPLIED -eq 0 ] && [ -z "$NON_C_FILES" ]; then
-        echo "   [SKIP] Conflitto strutturale (Falliti Fuzz 0, 1, 2 e 3). Patch scartata."
+    if [ $APPLIED -eq 0 ]; then
+        if [ -z "$NON_C_FILES" ]; then
+            echo "   [SKIP] Conflitto strutturale (Falliti Fuzz 0, 1, 2 e 3). Patch scartata."
+        fi
+        for t_file in $TOUCHED_FILES; do rm -f "${t_file}.bedrock_bak" "${t_file}.orig" "${t_file}.rej"; done
     fi
 
     if [ $APPLIED -eq 1 ]; then
@@ -251,14 +259,23 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
                 fi
             done
             if [ $AST_FAILED -eq 1 ]; then
-                echo "   [ROLLBACK] Conflitto sintattico rilevato in $patch_name! Revert e scarto della patch."
-                patch -p1 -R -F $FUZZ_VAL --force < "$patch" > /dev/null || true
+                echo "   [ROLLBACK ATOMICO] Conflitto sintattico rilevato in $patch_name! Ripristino chirurgico dei file modificati..."
+                for t_file in $TOUCHED_FILES; do
+                    rm -f "${t_file}.orig" "${t_file}.rej"
+                    if [ -f "${t_file}.bedrock_bak" ]; then
+                        mv -f "${t_file}.bedrock_bak" "$t_file"
+                    else
+                        rm -f "$t_file"
+                    fi
+                done
             else
                 echo "   [SUCCESS] Patch fusa (Fuzz $FUZZ_VAL) e validata nativamente tramite AST Kbuild: $patch_name"
+                for t_file in $TOUCHED_FILES; do rm -f "${t_file}.bedrock_bak" "${t_file}.orig" "${t_file}.rej"; done
             fi
         else
             make LD=ld.bfd olddefconfig </dev/null >/dev/null 2>&1 || true
             echo "   [SUCCESS] Patch fusa (Fuzz $FUZZ_VAL - file non-C/header): $patch_name"
+            for t_file in $TOUCHED_FILES; do rm -f "${t_file}.bedrock_bak" "${t_file}.orig" "${t_file}.rej"; done
         fi
     fi
 done
