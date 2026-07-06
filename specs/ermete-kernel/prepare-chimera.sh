@@ -195,9 +195,17 @@ echo ">>> Scrittura script di applicazione e validazione AST/Kbuild in /tmp/patc
 > /tmp/patch_apply.txt
 cat << 'EOF' >> /tmp/patch_apply.txt
 echo ">>> [BEDROCK] Inizio applicazione matrice universale Kbuild/AST per le patch..."
-cp configs/kernel-x86_64.config .config
-make olddefconfig
-make prepare
+export LD=ld.bfd
+export MAKEFLAGS="LD=ld.bfd"
+CONF_FILE=$(ls %{_sourcedir}/kernel-x86_64*.config 2>/dev/null | head -n 1 || ls /root/rpmbuild/SOURCES/kernel-x86_64*.config 2>/dev/null | head -n 1 || ls configs/kernel-x86_64*.config 2>/dev/null | head -n 1)
+if [ -n "$CONF_FILE" ] && [ -f "$CONF_FILE" ]; then
+    cp "$CONF_FILE" .config
+else
+    echo "ERRORE CRITICO: File di configurazione kernel-x86_64*.config non trovato!"
+    exit 1
+fi
+make LD=ld.bfd olddefconfig
+make LD=ld.bfd prepare
 
 for patch in %{_sourcedir}/bedrock-*.patch; do
     if [ ! -f "$patch" ]; then continue; fi
@@ -205,6 +213,7 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
     
     if patch -p1 -F 2 --force --dry-run --silent < "$patch"; then
         patch -p1 -F 2 --force < "$patch" > /dev/null || true
+        make LD=ld.bfd olddefconfig </dev/null >/dev/null 2>&1 || true
         echo "   [SUCCESS] Patch applicata a Fuzz 2."
     else
         echo "   [WARNING] Fallito Fuzz 2. Tento Fuzz 3..."
@@ -213,13 +222,14 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
              echo "   [SKIP] La patch tocca file non-C. Impossibile validare con AST. Fuzz 3 vietato. Scartata."
         elif patch -p1 -F 3 --force --dry-run --silent < "$patch"; then
             patch -p1 -F 3 --force < "$patch" > /dev/null || true
+            make LD=ld.bfd olddefconfig </dev/null >/dev/null 2>&1 || true
             echo "   [AST VALIDATION] Controllo purezza albero sintattico tramite Kbuild Assembly..."
             MODIFIED_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep '\.c$' || true)
             AST_FAILED=0
             for c_file in $MODIFIED_C_FILES; do
                 if [ -f "$c_file" ]; then
                     target_s="${c_file%.c}.s"
-                    if ! make "$target_s" >/dev/null 2>&1; then
+                    if ! make LD=ld.bfd "$target_s" </dev/null >/dev/null 2>&1; then
                         AST_FAILED=1
                         echo "   [AST FATAL] Kbuild ha fallito la compilazione AST di $c_file!"
                         break
@@ -343,8 +353,10 @@ cat << 'EOF' >> ~/.rpmmacros
 %_with_vanilla 1
 %buildid .chimera
 %toolchain gcc
-%optflags %{__global_compiler_flags} -march=x86-64-v3 -pipe -Wno-error
-%kcflags -march=x86-64-v3 -pipe -Wno-error
+%_ld ld.bfd
+%_ldflags -Wl,-O2 -Wl,--as-needed -Wl,--sort-common -Wl,-z,now -Wl,-z,relro -fuse-ld=bfd
+%optflags %{__global_compiler_flags} -march=x86-64-v3 -pipe -Wno-error -fuse-ld=bfd
+%kcflags -march=x86-64-v3 -pipe -Wno-error -fuse-ld=bfd
 
 %_without_selftests 1
 %_without_tools 1
@@ -365,10 +377,12 @@ echo "========================================================="
 echo ">>> Esecuzione rpmbuild -bp per scompattare, applicare patch e validare l'albero..."
 spectool -g -R SPECS/kernel.spec
 dnf builddep -y SPECS/kernel.spec
+export LD=ld.bfd
+export MAKEFLAGS="LD=ld.bfd"
 rpmbuild -bp SPECS/kernel.spec --target x86_64
 
 echo ">>> Rilevamento della directory di build del kernel preparata..."
-KERNEL_BUILD_DIR=$(find "$WORKSPACE_DIR/BUILD" -maxdepth 3 -name "Makefile" -exec grep -l "VERSION =" {} + | head -n 1 | xargs dirname)
+KERNEL_BUILD_DIR=$(find "$WORKSPACE_DIR/BUILD" -maxdepth 6 -name "Makefile" -exec grep -l "^VERSION =" {} + 2>/dev/null | head -n 1 | xargs -r dirname)
 if [ -z "$KERNEL_BUILD_DIR" ]; then
     echo "ERRORE FATALE: Directory di build del kernel non trovata dopo rpmbuild -bp!"
     exit 1

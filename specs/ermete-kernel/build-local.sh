@@ -23,6 +23,7 @@ docker run --rm -i \
   -e GITHUB_WORKSPACE=/forge \
   registry.fedoraproject.org/fedora:43 \
   /bin/bash -c "
+    set -e
     echo '>>> Configurazione DNF (Identica alla CI)...'
     echo 'zchunk=False' >> /etc/dnf/dnf.conf
     echo 'fastestmirror=True' >> /etc/dnf/dnf.conf
@@ -41,7 +42,9 @@ docker run --rm -i \
     ./scripts/config --disable GCOV_KERNEL
     ./scripts/config --disable GCOV_PROFILE_ALL
     
-    make olddefconfig
+    export LD=ld.bfd
+    export MAKEFLAGS="LD=ld.bfd"
+    make LD=ld.bfd olddefconfig </dev/null
     
     echo '>>> Configurazione CCACHE locale persistente...'
     export PATH=\"/usr/lib64/ccache:/usr/lib/ccache:\$PATH\"
@@ -51,7 +54,8 @@ docker run --rm -i \
     ccache -z
     
     echo '>>> [BEDROCK] Compilazione RPM NATIVA...'
-    make -j\$(nproc) binrpm-pkg
+    export LD=ld.bfd
+    make -j\$(nproc) LD=ld.bfd binrpm-pkg </dev/null
     ccache -s
     
     echo '========================================================='
