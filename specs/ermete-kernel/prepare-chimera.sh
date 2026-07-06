@@ -159,14 +159,15 @@ fi
 for repo in xanmod liquorix zen garuda tkg; do
     if [ -d "/tmp/${repo}-patches" ]; then
         search_dir="/tmp/${repo}-patches"
-        k_major="${KERNEL_VER%.*}"
-        if [ -n "$(find "$search_dir" -maxdepth 2 -type d -name "*${k_major}*" | head -n 1)" ]; then
-            search_dirs=$(find "$search_dir" -maxdepth 2 -type d -name "*${k_major}*")
+        if [ -n "$(find "$search_dir" -maxdepth 2 -type d -name "*${KERNEL_VER}*" | head -n 1)" ]; then
+            search_dirs=$(find "$search_dir" -maxdepth 2 -type d -name "*${KERNEL_VER}*")
             for s_dir in $search_dirs; do
                 find "$s_dir" -name "*.patch" -type f | while read patch_file; do
                     cp -f "$patch_file" "SOURCES/$(route_patch "$(basename "$patch_file")" "$repo")"
                 done
             done
+        elif [ -n "$(find "$search_dir" -maxdepth 2 -type d -name "*[0-9]\.[0-9]*" | head -n 1)" ]; then
+            echo "    [SHIELD] Il repository $repo è organizzato per versioni ma non ha una cartella per il kernel $KERNEL_VER. Salto per evitare incompatibilità."
         else
             find "$search_dir" -name "*.patch" -type f | while read patch_file; do
                 cp -f "$patch_file" "SOURCES/$(route_patch "$(basename "$patch_file")" "$repo")"
