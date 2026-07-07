@@ -502,7 +502,7 @@ jobs:
     steps:
       - name: Build Initramfs RPM
         run: |
-          dnf install -y buildah rpm-build dracut kmod curl
+          dnf install -y buildah rpm-build dracut kmod curl ostree
           export STORAGE_DRIVER=vfs
           export BUILDAH_ISOLATION=chroot
           buildah login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ghcr.io
