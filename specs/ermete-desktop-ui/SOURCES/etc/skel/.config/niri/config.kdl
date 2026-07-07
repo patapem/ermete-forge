@@ -169,9 +169,7 @@ binds {
     Mod+P      { spawn "ags" "toggle" "powermenu"; }
     Mod+Shift+V { spawn "ags" "toggle" "clipboard"; }
     
-    // Screenshots
-    Print { spawn "sh" "-c" "grim -g \"$(slurp)\" - | wl-copy"; }
-    Mod+Print { spawn "sh" "-c" "grim - | wl-copy"; }
+    // Screenshots (Clipboard)
     Mod+Shift+S { spawn "sh" "-c" "grim -g \"$(slurp)\" - | wl-copy"; }
     
     // Window & Column Actions
