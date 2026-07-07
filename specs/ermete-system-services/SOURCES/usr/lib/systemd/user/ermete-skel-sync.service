@@ -1,0 +1,13 @@
+[Unit]
+Description=Ermete OS User Skeleton Sync
+Documentation=https://github.com/patapem/ermete-forge
+Before=ermete-ags.service ermete-wallpaper.service niri-session.target
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash -c 'if [ ! -d "$HOME/.config/ags" ] || [ ! -f "$HOME/.config/ags/app.ts" -a ! -f "$HOME/.config/ags/config.js" -a ! -f "$HOME/.config/ags/flake.nix" ]; then mkdir -p "$HOME/.config/ags" && cp -a /etc/skel/.config/ags/* "$HOME/.config/ags/" 2>/dev/null || true; fi'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=niri-session.target graphical-session.target

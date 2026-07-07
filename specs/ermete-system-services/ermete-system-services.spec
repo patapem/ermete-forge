@@ -1,14 +1,16 @@
 %global debug_package %{nil}
 Name:           ermete-system-services
-Version:        1.0.0
+Version:        1.0.1
 Release:        1%{?dist}
 Summary:        Ermete OS ermete-system-services
 License:        MIT
 URL:            https://github.com/patapem/ermete-forge
 BuildArch:      noarch
+Requires:       systemd
+Requires:       aylurs-gtk-shell2
 
 %description
-Provides ermete-system-services for Ermete OS.
+Provides core systemd user targets, desktop panel lifecycle services, and skeleton synchronization for Ermete OS.
 
 %prep
 # Nothing to prep
@@ -18,12 +20,21 @@ Provides ermete-system-services for Ermete OS.
 
 %install
 mkdir -p %{buildroot}/usr/share/ermete-system-services
-
-%post
+mkdir -p %{buildroot}/usr/lib/systemd/user
+mkdir -p %{buildroot}/usr/lib/systemd/user-preset
+cp -a %{_sourcedir}/usr/lib/systemd/user/* %{buildroot}/usr/lib/systemd/user/ || true
+cp -a %{_sourcedir}/usr/lib/systemd/user-preset/* %{buildroot}/usr/lib/systemd/user-preset/ || true
 
 %files
 %dir /usr/share/ermete-system-services
+/usr/lib/systemd/user/niri-session.target
+/usr/lib/systemd/user/ermete-skel-sync.service
+/usr/lib/systemd/user/ermete-ags.service
+/usr/lib/systemd/user/ermete-wallpaper.service
+/usr/lib/systemd/user-preset/99-ermete-desktop.preset
 
 %changelog
-* Wed Jul 01 2026 Ermete Forge <forge@ermete.os> - 1.0.0-1
-- Initial Bedrock encapsulation
+* Tue Jul 07 2026 Ermete Forge <forge@ermete.os> - 1.0.1-1
+- Implement systemd user target niri-session.target
+- Implement Astal AGS desktop panel lifecycle service
+- Implement skeleton sync for seamless user upgrade migration
