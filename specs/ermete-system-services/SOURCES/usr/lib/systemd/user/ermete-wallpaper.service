@@ -2,7 +2,8 @@
 Description=Ermete OS Wallpaper Service
 Documentation=https://github.com/patapem/ermete-forge
 BindsTo=graphical-session.target
-After=graphical-session-pre.target
+After=graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
@@ -12,4 +13,4 @@ Restart=on-failure
 RestartSec=2s
 
 [Install]
-WantedBy=niri-session.target graphical-session.target
+WantedBy=graphical-session.target

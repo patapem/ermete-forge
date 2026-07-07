@@ -2,15 +2,16 @@
 Description=Ermete OS Desktop Panel (Astal/AGS)
 Documentation=https://github.com/patapem/ermete-forge
 BindsTo=graphical-session.target
-Wants=graphical-session-pre.target
-After=graphical-session-pre.target ermete-skel-sync.service
+After=graphical-session.target ermete-skel-sync.service
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
 Slice=session.slice
-ExecStart=/usr/bin/bash -c 'if [ -f "$HOME/.config/ags/app.ts" ] || [ -f "$HOME/.config/ags/app.js" ]; then exec /usr/bin/ags run "$HOME/.config/ags" --gtk4; else exec /usr/bin/ags run /etc/skel/.config/ags --gtk4; fi'
+Environment="LD_PRELOAD=/usr/lib64/libgtk4-layer-shell.so"
+ExecStart=/usr/bin/bash -c 'if [ -f "$HOME/.config/ags/app.ts" ] || [ -f "$HOME/.config/ags/app.js" ]; then exec /usr/bin/ags run "$HOME/.config/ags"; else exec /usr/bin/ags run /etc/skel/.config/ags; fi'
 Restart=on-failure
 RestartSec=2s
 
 [Install]
-WantedBy=niri-session.target graphical-session.target
+WantedBy=graphical-session.target

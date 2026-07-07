@@ -38,7 +38,7 @@ export GO111MODULE=on
 export GOPATH=$(pwd)/_build
 export GOPROXY=https://proxy.golang.org,direct
 
-go build -v -ldflags "-X ags/main.gtk4LayerShell=/usr/lib64/libgtk4-layer-shell.so.0 -X ags/main.astalGjs=$(pkg-config --variable=srcdir astal-gjs)" -o bin/ags .
+go build -v -ldflags "-X github.com/Aylur/ags/cmd.gtk4LayerShell=/usr/lib64/libgtk4-layer-shell.so.0 -X ags/cmd.gtk4LayerShell=/usr/lib64/libgtk4-layer-shell.so.0 -X ags/main.gtk4LayerShell=/usr/lib64/libgtk4-layer-shell.so.0 -X main.gtk4LayerShell=/usr/lib64/libgtk4-layer-shell.so.0 -X ags/main.astalGjs=$(pkg-config --variable=srcdir astal-gjs)" -o bin/ags .
 
 %install
 install -m 0755 -vd                     %{buildroot}%{_bindir}
