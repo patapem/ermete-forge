@@ -1,7 +1,7 @@
 #!/bin/bash
+set -euo pipefail
 # Ermete OS: The Ultimate Chimera Kernel Bedrock Builder (Fedora Upstream Zero-Trust)
 
-set -e
 
 WORKSPACE_DIR="$HOME/rpmbuild"
 echo ">>> Pulizia profonda del workspace per evitare conflitti con vecchie build..."

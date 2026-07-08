@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 if [ -z "$1" ]; then
     echo "Uso: $0 <nome-pacchetto>"

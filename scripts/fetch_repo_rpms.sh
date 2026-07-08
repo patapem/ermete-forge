@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 mkdir -p /github/home/repo
 export STORAGE_DRIVER=vfs

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Ermete OS: The Ultimate Chimera Kernel Bedrock Local Builder
 # Riproduce in bit-perfect il workflow di GitHub Actions all'interno di un micro-container OCI locale
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Bedrock Pure Bash Idempotency Checker
 # Replaces python3 idempotency_checker.py with native system tools (find, sha256sum, skopeo)
 
