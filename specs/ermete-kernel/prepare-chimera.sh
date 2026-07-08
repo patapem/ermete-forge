@@ -256,6 +256,11 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
     fi
 
     if [ $APPLIED -eq 1 ]; then
+        if [ -f /forge/.ast_done ]; then
+            echo "   [SKIP AST] Fase 3 rilevata. Salto AST Validation per $patch_name per velocizzare la build finale."
+            for t_file in $TOUCHED_FILES; do rm -f "${t_file}.bedrock_bak" "${t_file}.orig" "${t_file}.rej"; done
+            continue
+        fi
         MODIFIED_C_FILES=$(grep -E '^\+\+\+ b/' "$patch" | awk '{print $2}' | sed 's/^b\///' | grep '\.c$' || true)
         if [ -n "$MODIFIED_C_FILES" ]; then
             make LLVM=1 LLVM_IAS=1 olddefconfig </dev/null >/dev/null 2>&1 || true
@@ -264,23 +269,10 @@ for patch in %{_sourcedir}/bedrock-*.patch; do
             for c_file in $MODIFIED_C_FILES; do
                 if [ -f "$c_file" ]; then
                     target_o="${c_file%.c}.o"
-                    # Estrazione dinamica dei flag di compilazione (AST Surgery)
-                    COMPILE_CMD=$(make LLVM=1 LLVM_IAS=1 --dry-run "$target_o" </dev/null 2>/dev/null | grep -E '\b(gcc|clang)\b' | grep "$c_file" | head -n 1 || true)
-                    if [ -n "$COMPILE_CMD" ]; then
-                        # Sostituisce il compilatore con clang -fsyntax-only e rimuove l'output file (-o ...)
-                        CLANG_CMD=$(echo "$COMPILE_CMD" | sed -E 's/^(.*)\b(gcc|clang)\b(.*)-o[[:space:]]+[^[:space:]]+(.*)$/clang -fsyntax-only \3\4/')
-                        if ! eval "$CLANG_CMD" >/dev/null 2>&1; then
-                            AST_FAILED=1
-                            echo "   [AST FATAL] Clang ha fallito la validazione sintattica pura di $c_file!"
-                            break
-                        fi
-                    else
-                        # Fallback se non riusciamo a estrarre i flag
-                        if ! make LLVM=1 LLVM_IAS=1 "$target_o" </dev/null >/dev/null 2>&1; then
-                            AST_FAILED=1
-                            echo "   [AST FATAL] Kbuild ha fallito la compilazione AST (fallback) di $c_file!"
-                            break
-                        fi
+                    if ! make LLVM=1 LLVM_IAS=1 "$target_o" </dev/null >/dev/null 2>&1; then
+                        AST_FAILED=1
+                        echo "   [AST FATAL] Kbuild ha fallito la compilazione AST di $c_file!"
+                        break
                     fi
                 fi
             done
@@ -316,6 +308,10 @@ echo 'CFLAGS_head64.o += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/kernel
 echo 'CFLAGS_head32.o += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/kernel/Makefile
 echo 'CFLAGS_ebda.o += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/kernel/Makefile
 echo 'CFLAGS_platform-quirks.o += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/kernel/Makefile
+echo "GCOV_PROFILE_head64.o := n" >> arch/x86/kernel/Makefile
+echo "GCOV_PROFILE_head32.o := n" >> arch/x86/kernel/Makefile
+echo "GCOV_PROFILE_ebda.o := n" >> arch/x86/kernel/Makefile
+echo "GCOV_PROFILE_platform-quirks.o := n" >> arch/x86/kernel/Makefile
 echo 'KBUILD_CFLAGS += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/boot/compressed/Makefile
 echo 'KBUILD_CFLAGS += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/boot/Makefile
 
