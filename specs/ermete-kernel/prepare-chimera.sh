@@ -316,6 +316,8 @@ echo 'CFLAGS_head64.o += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/kernel
 echo 'CFLAGS_head32.o += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/kernel/Makefile
 echo 'CFLAGS_ebda.o += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/kernel/Makefile
 echo 'CFLAGS_platform-quirks.o += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/kernel/Makefile
+echo 'KBUILD_CFLAGS += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/boot/compressed/Makefile
+echo 'KBUILD_CFLAGS += -fno-stack-protector $(DISABLE_LTO)' >> arch/x86/boot/Makefile
 
 echo ">>> [BEDROCK WERROR SHIELD] Disabling -Werror globally across all kernel subsystems..."
 echo 'KBUILD_CFLAGS += -Wno-error' >> Makefile
@@ -351,7 +353,9 @@ CONFIG_MODULE_COMPRESS_ZSTD=y
 CONFIG_LRU_GEN=y
 CONFIG_LRU_GEN_ENABLED=y
 
-CONFIG_GENERIC_CPU=y
+# CONFIG_GENERIC_CPU is not set
+CONFIG_GENERIC_CPU_V3=y
+CONFIG_X86_64_VERSION=3
 CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=y
 CONFIG_LTO_CLANG_THIN=y
 CONFIG_LTO_CLANG=y
@@ -432,8 +436,8 @@ cat << 'EOF' >> ~/.rpmmacros
 %toolchain clang
 %_ld ld.lld
 %_ldflags -Wl,-O2 -Wl,--as-needed -Wl,--sort-common -Wl,-z,now -Wl,-z,relro -fuse-ld=lld
-%optflags %{__global_compiler_flags} -march=x86-64-v3 -pipe -Wno-error -fuse-ld=lld
-%kcflags -march=x86-64-v3 -pipe -Wno-error -fuse-ld=lld
+%optflags %{__global_compiler_flags} -pipe -Wno-error -fuse-ld=lld
+%kcflags -pipe -Wno-error -fuse-ld=lld
 
 %_without_selftests 1
 %_without_tools 1
