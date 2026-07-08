@@ -451,6 +451,21 @@ EOF
 echo "========================================================="
 echo " FASE 4: PREPARAZIONE ALBERO SORGENTE (%prep)"
 echo "========================================================="
+echo ">>> Injecting Rust fix into kernel.spec %prep phase..."
+cat << 'RUSTFIX' > "$WORKSPACE_DIR/fix-rust.sh"
+echo ">>> FIX RUST NO-JUMP-TABLES AND TARGET POINTER WIDTH AND CORE EDITION"
+find . -type f -name "Makefile" -exec sed -i 's/-Zno-jump-tables/-Zunstable-options/g' {} +
+find . -type f -name "Makefile" -exec sed -i 's/-Z no-jump-tables/-Z unstable-options/g' {} +
+find . -type f -name "generate_rust_target.rs" -exec sed -i 's/"target-pointer-width", "64"/"target-pointer-width", 64/g' {} +
+find . -type f -name "generate_rust_target.rs" -exec sed -i 's/"target-pointer-width", "32"/"target-pointer-width", 32/g' {} +
+find . -type f -name "Makefile" -path "*/rust/Makefile" -exec sed -i 's/rustc_target_flags = $(core-cfgs)/rustc_target_flags = $(core-cfgs) --edition=2024/g' {} +
+find . -type f -name "Makefile" -path "*/rust/Makefile" -exec sed -i 's/skip_flags = -Wunreachable_pub/skip_flags = -Wunreachable_pub --edition=2021/g' {} +
+find . -type f -name "Makefile" -path "*/arch/x86/tools/Makefile" -exec sed -i 's/$(call cmd,posttest)/true/g' {} +
+find . -type f -name "Makefile" -path "*/arch/x86/tools/Makefile" -exec sed -i 's/$(call cmd,sanitytest)/true/g' {} +
+RUSTFIX
+awk '/^%build/ && !done { print; system("cat \"'"$WORKSPACE_DIR"'\"/fix-rust.sh"); done=1; next }1' SPECS/kernel.spec > SPECS/kernel.spec.new
+mv SPECS/kernel.spec.new SPECS/kernel.spec
+
 echo ">>> Esecuzione rpmbuild -bp per scompattare, applicare patch e validare l'albero..."
 spectool -g -R SPECS/kernel.spec
 dnf builddep -y SPECS/kernel.spec

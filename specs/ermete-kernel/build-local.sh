@@ -34,21 +34,7 @@ docker run --rm -i \
     echo '>>> Esecuzione prepare-chimera.sh...'
     bash specs/ermete-kernel/prepare-chimera.sh
     
-    echo ">>> Injecting Rust fix into kernel.spec %prep phase..."
-    cat << 'RUSTFIX' > ~/fix-rust.sh
-echo ">>> FIX RUST NO-JUMP-TABLES AND TARGET POINTER WIDTH AND CORE EDITION"
-find . -type f -name "Makefile" -exec sed -i 's/-Zno-jump-tables/-Zunstable-options/g' {} +
-find . -type f -name "Makefile" -exec sed -i 's/-Z no-jump-tables/-Z unstable-options/g' {} +
-find . -type f -name "generate_rust_target.rs" -exec sed -i 's/"target-pointer-width", "64"/"target-pointer-width", 64/g' {} +
-find . -type f -name "generate_rust_target.rs" -exec sed -i 's/"target-pointer-width", "32"/"target-pointer-width", 32/g' {} +
-find . -type f -name "Makefile" -path "*/rust/Makefile" -exec sed -i 's/rustc_target_flags = $(core-cfgs)/rustc_target_flags = $(core-cfgs) --edition=2024/g' {} +
-find . -type f -name "Makefile" -path "*/rust/Makefile" -exec sed -i 's/skip_flags = -Wunreachable_pub/skip_flags = -Wunreachable_pub --edition=2021/g' {} +
-find . -type f -name "Makefile" -path "*/arch/x86/tools/Makefile" -exec sed -i 's/$(call cmd,posttest)/true/g' {} +
-find . -type f -name "Makefile" -path "*/arch/x86/tools/Makefile" -exec sed -i 's/$(call cmd,sanitytest)/true/g' {} +
-RUSTFIX
-    awk '/^%build/ && !done { print; system("cat ~/fix-rust.sh"); done=1; next }1' ~/rpmbuild/SPECS/kernel.spec > ~/rpmbuild/SPECS/kernel.spec.new
-    mv ~/rpmbuild/SPECS/kernel.spec.new ~/rpmbuild/SPECS/kernel.spec
-    
+
     KERNEL_DIR=$(cat ~/rpmbuild/BUILD/.kernel_version)
     cd ~/rpmbuild/BUILD/$KERNEL_DIR
     
