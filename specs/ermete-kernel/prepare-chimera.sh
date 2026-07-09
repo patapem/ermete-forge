@@ -217,6 +217,9 @@ find . -type f -name "Makefile" -path "*/rust/Makefile" -exec sed -i 's/skip_fla
 find . -type f -name "Makefile" -path "*/arch/x86/tools/Makefile" -exec sed -i 's/$(call cmd,posttest)/true/g' {} + || true
 find . -type f -name "Makefile" -path "*/arch/x86/tools/Makefile" -exec sed -i 's/$(call cmd,sanitytest)/true/g' {} + || true
 
+echo ">>> [BEDROCK] Sradicamento totale flag GCC incompatibili con Clang e disattivazione -Werror per unknown warnings..."
+find . -type f \( -name "Makefile*" -o -name "Kbuild*" \) -exec sed -i 's/-Wrestrict//g; s/-Wpacked-not-aligned//g; s/-Wstringop-truncation//g; s/-Werror=unknown-warning-option/-Wno-unknown-warning-option/g' {} + || true
+
 make LLVM=1 LLVM_IAS=1 olddefconfig
 make LLVM=1 LLVM_IAS=1 prepare
 
