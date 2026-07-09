@@ -7,6 +7,12 @@ set -euo pipefail
 CACHYOS_COMMIT="HEAD"
 # -----------------------------------------
 
+echo ">>> [BEDROCK FUZZER] Preparazione Fuzzer in /usr/local/bin..."
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." &> /dev/null && pwd)"
+cp "$REPO_ROOT/specs/ermete-kernel/auto-dmz-fuzzer.sh" /usr/local/bin/auto-dmz-fuzzer.sh || cp specs/ermete-kernel/auto-dmz-fuzzer.sh /usr/local/bin/auto-dmz-fuzzer.sh
+chmod +x /usr/local/bin/auto-dmz-fuzzer.sh
+
+
 WORKSPACE_DIR="$HOME/rpmbuild"
 echo ">>> Pulizia profonda del workspace per evitare conflitti con vecchie build..."
 mkdir -p "$WORKSPACE_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
@@ -441,11 +447,6 @@ fi
 REL_DIR=$(realpath --relative-to="$WORKSPACE_DIR/BUILD" "$KERNEL_BUILD_DIR")
 echo "$REL_DIR" > "$WORKSPACE_DIR/BUILD/.kernel_version"
 echo ">>> Albero del kernel preparato e registrato in BUILD/.kernel_version: $REL_DIR"
-
-echo ">>> [BEDROCK FUZZER] Preparazione Fuzzer in /usr/local/bin..."
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
-cp "$SCRIPT_DIR/auto-dmz-fuzzer.sh" /usr/local/bin/auto-dmz-fuzzer.sh
-chmod +x /usr/local/bin/auto-dmz-fuzzer.sh
 
 echo ">>> [BEDROCK FRANKENSTEIN] Il Capo Ingegnere comanda: O3 GLOBALE CON AUTO-DMZ FUZZER."
 pushd "$KERNEL_BUILD_DIR" > /dev/null
