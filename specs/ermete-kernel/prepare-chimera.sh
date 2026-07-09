@@ -389,8 +389,8 @@ cat << 'EOF' >> ~/.rpmmacros
 %toolchain clang
 %_ld ld.lld
 %_ldflags -Wl,-O2 -Wl,--as-needed -Wl,--sort-common -Wl,-z,now -Wl,-z,relro
-%optflags %{__global_compiler_flags} -march=x86-64-v3 -pipe -Wno-error
-%kcflags -march=x86-64-v3 -pipe -Wno-error
+%optflags %{__global_compiler_flags} -O3 -march=x86-64-v3 -pipe -Wno-error
+%kcflags -O3 -march=x86-64-v3 -pipe -Wno-error
 
 %_without_selftests 1
 %_without_tools 1
