@@ -442,13 +442,13 @@ REL_DIR=$(realpath --relative-to="$WORKSPACE_DIR/BUILD" "$KERNEL_BUILD_DIR")
 echo "$REL_DIR" > "$WORKSPACE_DIR/BUILD/.kernel_version"
 echo ">>> Albero del kernel preparato e registrato in BUILD/.kernel_version: $REL_DIR"
 
-echo ">>> [BEDROCK FRANKENSTEIN] Il Capo Ingegnere comanda: O3 GLOBALE CON AUTO-DMZ FUZZER."
-pushd "$KERNEL_BUILD_DIR" > /dev/null
-
 echo ">>> [BEDROCK FUZZER] Preparazione Fuzzer in /usr/local/bin..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 cp "$SCRIPT_DIR/auto-dmz-fuzzer.sh" /usr/local/bin/auto-dmz-fuzzer.sh
 chmod +x /usr/local/bin/auto-dmz-fuzzer.sh
+
+echo ">>> [BEDROCK FRANKENSTEIN] Il Capo Ingegnere comanda: O3 GLOBALE CON AUTO-DMZ FUZZER."
+pushd "$KERNEL_BUILD_DIR" > /dev/null
 
 # 1. Distruzione Infiniband e SCSI orfani
 sed -i '/infiniband\//d' drivers/Makefile
