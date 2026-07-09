@@ -446,7 +446,8 @@ echo ">>> [BEDROCK FRANKENSTEIN] Il Capo Ingegnere comanda: O3 GLOBALE CON AUTO-
 pushd "$KERNEL_BUILD_DIR" > /dev/null
 
 echo ">>> [BEDROCK FUZZER] Preparazione Fuzzer in /usr/local/bin..."
-cp "$WORKSPACE_DIR/specs/ermete-kernel/auto-dmz-fuzzer.sh" /usr/local/bin/auto-dmz-fuzzer.sh || cp specs/ermete-kernel/auto-dmz-fuzzer.sh /usr/local/bin/auto-dmz-fuzzer.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+cp "$SCRIPT_DIR/auto-dmz-fuzzer.sh" /usr/local/bin/auto-dmz-fuzzer.sh
 chmod +x /usr/local/bin/auto-dmz-fuzzer.sh
 
 # 1. Distruzione Infiniband e SCSI orfani
