@@ -57,7 +57,13 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 
     echo ">>> [AUTO-DMZ] Applicazione Scudo O2 in tempo reale su $BAD_DIR e suoi rami..."
     # Inietta lo scudo in tutti i Makefile e Kbuild figli
-    find "$BAD_DIR" -type f \( -name "Makefile" -o -name "Kbuild" \) -exec bash -c 'echo -e "\nccflags-remove-y += -O3 \$(CC_FLAGS_LTO)\nccflags-y += -O2 -fno-lto -Wno-error" >> "$1"' _ {} \;
+    find "$BAD_DIR" -type f \( -name "Makefile" -o -name "Kbuild" \) -exec bash -c 'cat << "EOF_MAKE" >> "$1"
+
+ccflags-remove-y += -O3 $(CC_FLAGS_LTO)
+ccflags-y += -O2 -fno-lto -Wno-error
+KCFLAGS := $(filter-out -O3,$(KCFLAGS))
+EOF_MAKE
+' _ {} \;
     
     RETRY_COUNT=$((RETRY_COUNT + 1))
 done

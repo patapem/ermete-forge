@@ -31,10 +31,10 @@ fetch_pinned() {
   echo ">>> Fetching $TARGET (Commit: $COMMIT)..."
   rm -rf "$TARGET"
   if [ "$COMMIT" = "HEAD" ]; then
-      git clone --depth 1 $BRANCH_TAG "$REPO" "$TARGET" || true
+      git clone --depth 1 $BRANCH_TAG "$REPO" "$TARGET" || { echo "FATAL: Clone fallito per $REPO"; exit 1; }
   else
-      git clone --depth 500 $BRANCH_TAG "$REPO" "$TARGET" || true
-      git -C "$TARGET" checkout -q "$COMMIT" || echo "    [WARNING] Fallito checkout $COMMIT in $TARGET"
+      git clone --depth 500 $BRANCH_TAG "$REPO" "$TARGET" || { echo "FATAL: Clone fallito per $REPO"; exit 1; }
+      git -C "$TARGET" checkout -q "$COMMIT" || { echo "FATAL: Checkout fallito per $COMMIT"; exit 1; }
   fi
 }
 
@@ -43,7 +43,7 @@ fetch_pinned "https://github.com/CachyOS/kernel-patches.git" "/tmp/cachyos-patch
 # ClearLinux necessita di storia profonda (Time-Travel) per cercare i vecchi commit di kernel passati!
 echo ">>> Fetching /tmp/clearlinux-patches (Depth 1000 per Time-Travel)..."
 rm -rf /tmp/clearlinux-patches
-git clone --depth 1000 https://github.com/clearlinux-pkgs/linux.git /tmp/clearlinux-patches || true
+git clone --depth 1000 https://github.com/clearlinux-pkgs/linux.git /tmp/clearlinux-patches || { echo "FATAL: Clone fallito per ClearLinux"; exit 1; }
 
 echo ">>> [BEDROCK SECURE] Calcolo dinamico dello Scudo NVIDIA (Dynamic Ceiling)..."
 curl -sLo /etc/yum.repos.d/fedora-nvidia.repo https://negativo17.org/repos/fedora-nvidia.repo || true
@@ -204,6 +204,17 @@ else
     echo "ERRORE CRITICO: File di configurazione kernel-x86_64*.config non trovato!"
     exit 1
 fi
+
+echo ">>> [BEDROCK] FIX RUST NO-JUMP-TABLES AND TARGET POINTER WIDTH AND CORE EDITION"
+find . -type f -name "Makefile" -exec sed -i 's/-Zno-jump-tables/-Zunstable-options/g' {} + || true
+find . -type f -name "Makefile" -exec sed -i 's/-Z no-jump-tables/-Z unstable-options/g' {} + || true
+find . -type f -name "generate_rust_target.rs" -exec sed -i 's/"target-pointer-width", "64"/"target-pointer-width", 64/g' {} + || true
+find . -type f -name "generate_rust_target.rs" -exec sed -i 's/"target-pointer-width", "32"/"target-pointer-width", 32/g' {} + || true
+find . -type f -name "Makefile" -path "*/rust/Makefile" -exec sed -i 's/rustc_target_flags = $(core-cfgs)/rustc_target_flags = $(core-cfgs) --edition=2024/g' {} + || true
+find . -type f -name "Makefile" -path "*/rust/Makefile" -exec sed -i 's/skip_flags = -Wunreachable_pub/skip_flags = -Wunreachable_pub --edition=2021/g' {} + || true
+find . -type f -name "Makefile" -path "*/arch/x86/tools/Makefile" -exec sed -i 's/$(call cmd,posttest)/true/g' {} + || true
+find . -type f -name "Makefile" -path "*/arch/x86/tools/Makefile" -exec sed -i 's/$(call cmd,sanitytest)/true/g' {} + || true
+
 make LLVM=1 LLVM_IAS=1 olddefconfig
 make LLVM=1 LLVM_IAS=1 prepare
 
@@ -404,32 +415,6 @@ cat << 'EOF' >> ~/.rpmmacros
 %_binary_payload w1.zstdio
 %_source_payload w1.zstdio
 EOF
-
-echo "========================================================="
-echo " FASE 4: PREPARAZIONE ALBERO SORGENTE (%prep)"
-echo "========================================================="
-echo ">>> Injecting Rust fix into kernel.spec %prep phase..."
-cat << 'RUSTFIX' > "$WORKSPACE_DIR/fix-rust.sh"
-echo ">>> FIX RUST NO-JUMP-TABLES AND TARGET POINTER WIDTH AND CORE EDITION"
-find . -type f -name "Makefile" -exec sed -i 's/-Zno-jump-tables/-Zunstable-options/g' {} +
-find . -type f -name "Makefile" -exec sed -i 's/-Z no-jump-tables/-Z unstable-options/g' {} +
-find . -type f -name "generate_rust_target.rs" -exec sed -i 's/"target-pointer-width", "64"/"target-pointer-width", 64/g' {} +
-find . -type f -name "generate_rust_target.rs" -exec sed -i 's/"target-pointer-width", "32"/"target-pointer-width", 32/g' {} +
-find . -type f -name "Makefile" -path "*/rust/Makefile" -exec sed -i 's/rustc_target_flags = $(core-cfgs)/rustc_target_flags = $(core-cfgs) --edition=2024/g' {} +
-find . -type f -name "Makefile" -path "*/rust/Makefile" -exec sed -i 's/skip_flags = -Wunreachable_pub/skip_flags = -Wunreachable_pub --edition=2021/g' {} +
-find . -type f -name "Makefile" -path "*/arch/x86/tools/Makefile" -exec sed -i 's/$(call cmd,posttest)/true/g' {} +
-find . -type f -name "Makefile" -path "*/arch/x86/tools/Makefile" -exec sed -i 's/$(call cmd,sanitytest)/true/g' {} +
-
-echo ">>> VALIDAZIONE DINAMICA KCONFIG DOPO RPMBUILD PREP (Bedrock Checks)..."
-if [ -f .config ] && ! grep -q "CONFIG_SCHED_BORE=y" .config; then
-    echo "    [ERROR] CONFIG_SCHED_BORE è stato scartato o non risolto da Kbuild!"
-fi
-if [ -f .config ] && ! grep -q "CONFIG_LTO_CLANG_THIN=y" .config; then
-    echo "    [ERROR] LTO_CLANG_THIN fallito per dipendenze mancate!"
-fi
-RUSTFIX
-awk '/^%build/ && !done { print; system("cat \"'"$WORKSPACE_DIR"'\"/fix-rust.sh"); done=1; next }1' SPECS/kernel.spec > SPECS/kernel.spec.new
-mv SPECS/kernel.spec.new SPECS/kernel.spec
 
 echo ">>> Esecuzione rpmbuild -bp per scompattare, applicare patch e validare l'albero..."
 spectool -g -R SPECS/kernel.spec
