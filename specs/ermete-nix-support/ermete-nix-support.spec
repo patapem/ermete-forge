@@ -19,11 +19,11 @@ Provides ermete-nix-support for Ermete OS.
 %install
 mkdir -p %{buildroot}/usr/lib/tmpfiles.d
 mkdir -p %{buildroot}/usr/share/nix-initial-state/var/nix/profiles
-mkdir -p %{buildroot}/nix
+ln -s var/nix %{buildroot}/nix
 cp -a %{_sourcedir}/usr/lib/tmpfiles.d/* %{buildroot}/usr/lib/tmpfiles.d/ || true
 
 %files
-%dir /nix
+/nix
 %dir /usr/share/nix-initial-state
 %dir /usr/share/nix-initial-state/var
 %dir /usr/share/nix-initial-state/var/nix

@@ -29,7 +29,6 @@ cp -a %{_sourcedir}/usr/share/ermete-system-config/greetd.toml %{buildroot}/usr/
 %files
 %dir /usr/share/ermete-system-config
 /usr/lib/systemd/system-preset/99-Ermete.preset
-/usr/lib/tmpfiles.d/10-ermete-home.conf
 /usr/lib/tmpfiles.d/10-ermete-greetd.conf
 /usr/share/ermete-system-config/greetd.toml
 
