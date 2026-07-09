@@ -60,7 +60,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     find "$BAD_DIR" -type f \( -name "Makefile" -o -name "Kbuild" \) -exec bash -c 'cat << "EOF_MAKE" >> "$1"
 
 ccflags-remove-y += -O3 $(CC_FLAGS_LTO)
-ccflags-y += -O2 -fno-lto -Wno-error
+ccflags-y += -O2 -fno-lto -Wno-error -Wno-unknown-warning-option
 KCFLAGS := $(filter-out -O3,$(KCFLAGS))
 EOF_MAKE
 ' _ {} \;

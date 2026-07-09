@@ -197,6 +197,8 @@ cat << 'EOF' >> /tmp/patch_apply.txt
 echo ">>> [BEDROCK] Inizio applicazione matrice Kbuild/AST per le patch..."
 export LLVM=1
 export MAKEFLAGS="LLVM=1 LLVM_IAS=1"
+export KCFLAGS="-Wno-unknown-warning-option"
+export KBUILD_CFLAGS="-Wno-unknown-warning-option"
 CONF_FILE=$(ls %{_sourcedir}/kernel-x86_64*.config 2>/dev/null | head -n 1 || ls /root/rpmbuild/SOURCES/kernel-x86_64*.config 2>/dev/null | head -n 1 || ls configs/kernel-x86_64*.config 2>/dev/null | head -n 1)
 if [ -n "$CONF_FILE" ] && [ -f "$CONF_FILE" ]; then
     cp "$CONF_FILE" .config
@@ -400,8 +402,8 @@ cat << 'EOF' >> ~/.rpmmacros
 %toolchain clang
 %_ld ld.lld
 %_ldflags -Wl,-O2 -Wl,--as-needed -Wl,--sort-common -Wl,-z,now -Wl,-z,relro
-%optflags %{__global_compiler_flags} -O3 -march=x86-64-v3 -pipe -Wno-error
-%kcflags -O3 -march=x86-64-v3 -pipe -Wno-error
+%optflags %{__global_compiler_flags} -O3 -march=x86-64-v3 -pipe -Wno-error -Wno-unknown-warning-option
+%kcflags -O3 -march=x86-64-v3 -pipe -Wno-error -Wno-unknown-warning-option
 
 %_without_selftests 1
 %_without_tools 1
@@ -421,6 +423,8 @@ spectool -g -R SPECS/kernel.spec
 dnf builddep -y SPECS/kernel.spec
 export LLVM=1
 export MAKEFLAGS="LLVM=1 LLVM_IAS=1"
+export KCFLAGS="-Wno-unknown-warning-option"
+export KBUILD_CFLAGS="-Wno-unknown-warning-option"
 rpmbuild -bp SPECS/kernel.spec --target x86_64
 
 echo ">>> Rilevamento della directory di build del kernel preparata..."
