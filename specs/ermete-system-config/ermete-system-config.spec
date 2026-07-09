@@ -20,10 +20,9 @@ Provides ermete-system-config for Ermete OS.
 mkdir -p %{buildroot}/usr/share/ermete-system-config
 mkdir -p %{buildroot}/usr/lib/systemd/system-preset
 mkdir -p %{buildroot}/usr/lib/tmpfiles.d
-mkdir -p %{buildroot}/etc/greetd
 cp -a %{_sourcedir}/usr/lib/systemd/system-preset/* %{buildroot}/usr/lib/systemd/system-preset/ || true
 cp -a %{_sourcedir}/usr/lib/tmpfiles.d/* %{buildroot}/usr/lib/tmpfiles.d/ || true
-cp -a %{_sourcedir}/etc/greetd/config.toml %{buildroot}/etc/greetd/config.toml || true
+cp -a %{_sourcedir}/usr/share/ermete-system-config/greetd.toml %{buildroot}/usr/share/ermete-system-config/greetd.toml || true
 
 %post
 
@@ -32,7 +31,7 @@ cp -a %{_sourcedir}/etc/greetd/config.toml %{buildroot}/etc/greetd/config.toml |
 /usr/lib/systemd/system-preset/99-Ermete.preset
 /usr/lib/tmpfiles.d/10-ermete-home.conf
 /usr/lib/tmpfiles.d/10-ermete-greetd.conf
-%config(noreplace) /etc/greetd/config.toml
+/usr/share/ermete-system-config/greetd.toml
 
 %changelog
 * Wed Jul 01 2026 Ermete Forge <forge@ermete.os> - 1.0.0-1
