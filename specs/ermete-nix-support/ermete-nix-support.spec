@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-nix-support
 Version:        1.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Ermete OS ermete-nix-support
 License:        MIT
 URL:            https://github.com/patapem/ermete-forge

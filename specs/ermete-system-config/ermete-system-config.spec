@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-system-config
 Version:        1.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Ermete OS ermete-system-config
 License:        MIT
 URL:            https://github.com/patapem/ermete-forge
@@ -22,7 +22,8 @@ mkdir -p %{buildroot}/usr/lib/systemd/system-preset
 mkdir -p %{buildroot}/usr/lib/tmpfiles.d
 cp -a %{_sourcedir}/usr/lib/systemd/system-preset/* %{buildroot}/usr/lib/systemd/system-preset/ || true
 cp -a %{_sourcedir}/usr/lib/tmpfiles.d/* %{buildroot}/usr/lib/tmpfiles.d/ || true
-cp -a %{_sourcedir}/usr/share/ermete-system-config/greetd.toml %{buildroot}/usr/share/ermete-system-config/greetd.toml || true
+mkdir -p %{buildroot}/etc/greetd
+cp -a %{_sourcedir}/usr/share/ermete-system-config/greetd.toml %{buildroot}/etc/greetd/config.toml || true
 
 %post
 
@@ -30,7 +31,7 @@ cp -a %{_sourcedir}/usr/share/ermete-system-config/greetd.toml %{buildroot}/usr/
 %dir /usr/share/ermete-system-config
 /usr/lib/systemd/system-preset/99-Ermete.preset
 /usr/lib/tmpfiles.d/10-ermete-greetd.conf
-/usr/share/ermete-system-config/greetd.toml
+%config(noreplace) /etc/greetd/config.toml
 
 %changelog
 * Wed Jul 01 2026 Ermete Forge <forge@ermete.os> - 1.0.0-1
