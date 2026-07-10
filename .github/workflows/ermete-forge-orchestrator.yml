@@ -12,6 +12,22 @@ env:
   FEDORA_VERSION: 43
 
 jobs:
+  orchestrator-brain:
+    name: 🧠 Orchestrator Brain
+    runs-on: ubuntu-latest
+    outputs:
+      custom_packages: ${{ steps.brain.outputs.custom_packages }}
+      cachyos_addons: ${{ steps.brain.outputs.cachyos_addons }}
+      upstream_core: ${{ steps.brain.outputs.upstream_core }}
+      upstream_desktop: ${{ steps.brain.outputs.upstream_desktop }}
+      upstream_media: ${{ steps.brain.outputs.upstream_media }}
+      upstream_cli: ${{ steps.brain.outputs.upstream_cli }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute Dynamic Matrix
+        id: brain
+        run: ./scripts/dynamic-matrix.sh
+
   build-builder:
     name: 🏗️ Build Base Builder
     runs-on: ubuntu-latest
@@ -45,13 +61,14 @@ jobs:
           docker push $IMAGE_LOWER:${{ steps.check_idempotency.outputs.content_hash }}
 
   custom-packages:
-    needs: build-builder
+    needs: [build-builder, orchestrator-brain]
+    if: needs.orchestrator-brain.outputs.custom_packages != '[]' && needs.orchestrator-brain.outputs.custom_packages != ''
     name: 📦 Custom Packages
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package: [starship, bat, selinux, ananicy, base-config, desktop-ui, ide-bootstrap, system-services, nix-support, system-config, system-tweaks, matugen, bibata]
+        package: ${{ fromJson(needs.orchestrator-brain.outputs.custom_packages) }}
     permissions:
       contents: read
       packages: write
@@ -60,20 +77,15 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v4
-      - name: Calculate Hash
-        id: hash
-        run: echo "hash=${{ hashFiles(format('specs/ermete-{0}/**', matrix.package), 'config/rpmmacros') }}" >> $GITHUB_OUTPUT
-      - name: Check Idempotency
+      - name: Check Idempotency (Content Hash)
         id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          dnf install -y skopeo
-          IMAGE="docker://${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-${{ matrix.package }}:${{ steps.hash.outputs.hash }}"
-          IMAGE_LOWER=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
-          if skopeo inspect "$IMAGE_LOWER" >/dev/null 2>&1; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+          bash scripts/check_idempotency.sh --package ${{ matrix.package }} --registry ${{ env.REGISTRY }} --owner ${{ github.repository_owner }} --image-name ermete-forge-${{ matrix.package }} > idemp.out
+          source ./idemp.out
+          echo "hash=$CONTENT_HASH" >> $GITHUB_OUTPUT
+          if [ "$CACHE_HIT" = "true" ]; then echo "skip=true" >> $GITHUB_OUTPUT; else echo "skip=false" >> $GITHUB_OUTPUT; fi
       - name: Install Dependencies and Build
         if: steps.check.outputs.skip != 'true'
         run: |
@@ -120,9 +132,9 @@ jobs:
           buildah copy $ctr /github/home/RPMS/*.rpm /
           IMAGE_LOWER=$(echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/ermete-forge-${{ matrix.package }}" | tr '[:upper:]' '[:lower:]')
           buildah commit $ctr $IMAGE_LOWER:latest
-          buildah tag $IMAGE_LOWER:latest $IMAGE_LOWER:${{ steps.hash.outputs.hash }}
+          buildah tag $IMAGE_LOWER:latest $IMAGE_LOWER:${{ steps.check.outputs.hash }}
           buildah push $IMAGE_LOWER:latest
-          buildah push $IMAGE_LOWER:${{ steps.hash.outputs.hash }}
+          buildah push $IMAGE_LOWER:${{ steps.check.outputs.hash }}
 
   ags-ecosystem:
     needs: build-builder
@@ -187,13 +199,14 @@ jobs:
           done
 
   cachyos-addons:
-    needs: build-builder
+    needs: [build-builder, orchestrator-brain]
+    if: needs.orchestrator-brain.outputs.cachyos_addons != '[]' && needs.orchestrator-brain.outputs.cachyos_addons != ''
     name: ⚙️ Build CachyOS Addons
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package: [bore-sysctl, scx-scheds, scx-tools]
+        package: ${{ fromJson(needs.orchestrator-brain.outputs.cachyos_addons) }}
     permissions:
       contents: read
       packages: write
@@ -492,14 +505,15 @@ jobs:
 
 
   upstream-core:
-    needs: build-builder
+    needs: [build-builder, orchestrator-brain]
+    if: needs.orchestrator-brain.outputs.upstream_core != '[]' && needs.orchestrator-brain.outputs.upstream_core != ''
     name: 📦 Upstream Core
 
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package: ["brightnessctl", "btrfs-progs", "dbus-tools", "dbus-x11", "distribution-gpg-keys", "drm_info", "file-roller", "firewalld", "fuse", "fwupd", "gnome-keyring", "gnome-keyring-pam", "greenboot", "greenboot-default-health-checks", "gvfs", "libnotify", "libxcrypt-compat", "lm_sensors", "mokutil", "nftables", "openssl", "qemu-kvm", "sbsigntools", "squashfuse", "sysstat", "upower", "virt-manager"]
+        package: ${{ fromJson(needs.orchestrator-brain.outputs.upstream_core) }}
     permissions:
       contents: read
       packages: write
@@ -588,14 +602,15 @@ jobs:
 
 
   upstream-desktop:
-    needs: build-builder
+    needs: [build-builder, orchestrator-brain]
+    if: needs.orchestrator-brain.outputs.upstream_desktop != '[]' && needs.orchestrator-brain.outputs.upstream_desktop != ''
     name: 📦 Upstream Desktop
 
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package: ["niri", "adw-gtk3-theme", "fontawesome-fonts-all", "foot", "greetd", "gtk4-layer-shell", "gtk-layer-shell", "jetbrains-mono-fonts", "papirus-icon-theme", "qt5-qtwayland", "qt6-qtwayland", "rsms-inter-fonts", "swaybg", "swaylock", "thunar", "thunar-archive-plugin", "thunar-volman", "wayland-utils", "xdg-desktop-portal-gnome", "xdg-desktop-portal-gtk", "xdg-user-dirs", "xdg-user-dirs-gtk", "xorg-x11-server-Xwayland"]
+        package: ${{ fromJson(needs.orchestrator-brain.outputs.upstream_desktop) }}
     permissions:
       contents: read
       packages: write
@@ -684,14 +699,15 @@ jobs:
 
 
   upstream-media:
-    needs: build-builder
+    needs: [build-builder, orchestrator-brain]
+    if: needs.orchestrator-brain.outputs.upstream_media != '[]' && needs.orchestrator-brain.outputs.upstream_media != ''
     name: 📦 Upstream Media
 
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package: ["pipewire", "nodejs", "npm", "ffmpeg", "mpv", "wireplumber", "x264", "libva-nvidia-driver", "libva-utils", "imv", "mesa-dri-drivers", "mesa-vulkan-drivers"]
+        package: ${{ fromJson(needs.orchestrator-brain.outputs.upstream_media) }}
     permissions:
       contents: read
       packages: write
@@ -781,14 +797,15 @@ jobs:
 
 
   upstream-cli:
-    needs: build-builder
+    needs: [build-builder, orchestrator-brain]
+    if: needs.orchestrator-brain.outputs.upstream_cli != '[]' && needs.orchestrator-brain.outputs.upstream_cli != ''
     name: 📦 Upstream Cli
 
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package: ["btop", "eza", "fd-find", "git", "inotify-tools", "just", "nushell", "parallel", "playerctl", "ripgrep", "rsync", "sqlite", "unzip", "wl-clipboard", "wl-mirror", "wlr-randr"]
+        package: ${{ fromJson(needs.orchestrator-brain.outputs.upstream_cli) }}
     permissions:
       contents: read
       packages: write

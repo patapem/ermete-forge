@@ -35,10 +35,16 @@ fi
 
 if [[ -n "$DIR" && -d "$DIR" ]]; then
   # Hash SHA-256 deterministico dei path relativi e dei contenuti
-  CONTENT_HASH=$(find "$DIR" -type f | sort | while read -r f; do
-    echo -n "${f#$DIR/}"
-    cat "$f"
-  done | sha256sum | awk '{print $1}')
+  CONTENT_HASH=$({
+    find "$DIR" -type f | sort | while read -r f; do
+      echo -n "${f#$DIR/}"
+      cat "$f"
+    done
+    if [[ -f "config/rpmmacros" ]]; then
+      echo -n "config/rpmmacros"
+      cat "config/rpmmacros"
+    fi
+  } | sha256sum | awk '{print $1}')
 else
   # Pacchetti upstream senza spec locale
   CONTENT_HASH=$(echo -n "${PACKAGE}upstream-cache-v1" | sha256sum | awk '{print $1}')
