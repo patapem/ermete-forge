@@ -4,15 +4,6 @@ set -euo pipefail
 REGISTRY="ghcr.io"
 OWNER="${GITHUB_REPOSITORY_OWNER:-patapem}"
 
-# Fetch arrays dynamically from Single Source of Truth
-readarray -t CUSTOM_PKGS < <(jq -r '.custom_packages[]' config/packages.json)
-
-readarray -t AGS_PKGS < <(jq -r '.ags_ecosystem[]' config/packages.json)
-readarray -t UPSTREAM_CORE < <(jq -r '.upstream_core[]' config/packages.json)
-readarray -t UPSTREAM_DESKTOP < <(jq -r '.upstream_desktop[]' config/packages.json)
-readarray -t UPSTREAM_MEDIA < <(jq -r '.upstream_media[]' config/packages.json)
-readarray -t UPSTREAM_CLI < <(jq -r '.upstream_cli[]' config/packages.json)
-
 if ! command -v skopeo >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
   if command -v dnf >/dev/null 2>&1; then
     dnf install -y skopeo jq
@@ -20,6 +11,14 @@ if ! command -v skopeo >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
     sudo apt-get update && sudo apt-get install -y skopeo jq
   fi
 fi
+
+# Fetch arrays dynamically from Single Source of Truth
+readarray -t CUSTOM_PKGS < <(jq -r '.custom_packages[]' config/packages.json)
+readarray -t AGS_PKGS < <(jq -r '.ags_ecosystem[]' config/packages.json)
+readarray -t UPSTREAM_CORE < <(jq -r '.upstream_core[]' config/packages.json)
+readarray -t UPSTREAM_DESKTOP < <(jq -r '.upstream_desktop[]' config/packages.json)
+readarray -t UPSTREAM_MEDIA < <(jq -r '.upstream_media[]' config/packages.json)
+readarray -t UPSTREAM_CLI < <(jq -r '.upstream_cli[]' config/packages.json)
 
 process_array() {
   local prefix=$1
