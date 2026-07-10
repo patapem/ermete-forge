@@ -41,11 +41,7 @@ install -m 644 ermete_scx.pp %{buildroot}/usr/share/selinux/packages/
 * Sun Jun 28 2026 Ermete Forge <forge@ermete.os> - 1.0-1
 - Initial release migrating SELinux policies from Containerfile to RPM
 
-%post
-if [ -d /usr/share/selinux/packages ]; then
-    semodule -i /usr/share/selinux/packages/bootupd_lsblk.pp || true
-    semodule -i /usr/share/selinux/packages/ermete_scx.pp || true
-    setsebool -P daemons_enable_cluster_mode 1 || true
-    setsebool -P xserver_execmem 1 || true
-    setsebool -P allow_execmem 1 || true
-fi
+%changelog
+* Tue Jul 07 2026 Ermete Forge <forge@ermete.os> - 1.0-2
+- Purged dangerous %post scriptlet for OSTree compatibility
+- Removed global allow_execmem 1 security risk

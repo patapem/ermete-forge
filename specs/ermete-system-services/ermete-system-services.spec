@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-system-services
 Version:        1.0.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Ermete OS ermete-system-services
 License:        MIT
 URL:            https://github.com/patapem/ermete-forge
@@ -33,6 +33,9 @@ cp -a %{_sourcedir}/usr/lib/systemd/user-preset/* %{buildroot}/usr/lib/systemd/u
 /usr/lib/systemd/user-preset/99-ermete-desktop.preset
 
 %changelog
+* Tue Jul 07 2026 Ermete Forge <forge@ermete.os> - 1.0.1-3
+- Refactored ermete-skel-sync to copy all missing dotfiles (Niri, Matugen, etc) securely without overwriting
+
 * Tue Jul 07 2026 Ermete Forge <forge@ermete.os> - 1.0.1-2
 - Fix Wayland socket race condition by changing After to graphical-session.target for ags and wallpaper
 
