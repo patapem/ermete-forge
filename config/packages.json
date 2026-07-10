@@ -2,7 +2,7 @@
   "custom_packages": [
     "starship", "bat", "selinux", "ananicy", "base-config", "desktop-ui", 
     "ide-bootstrap", "system-services", "nix-support", "system-config", 
-    "system-tweaks", "matugen", "bibata"
+    "system-tweaks", "matugen", "bibata", "dart-sass"
   ],
   "cachyos_addons": [
     "bore-sysctl", "scx-scheds", "scx-tools"
