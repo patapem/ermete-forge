@@ -12,7 +12,7 @@ Obsoletes:      ermete-ags-config < 1.0.1-3
 Provides:       ermete-niri-session = 1.0.0-3
 Obsoletes:      ermete-niri-session < 1.0.0-3
 
-Requires:       ags
+Requires:       aylurs-gtk-shell2
 Requires:       lxpolkit
 Requires:       cliphist
 Requires:       swayidle
