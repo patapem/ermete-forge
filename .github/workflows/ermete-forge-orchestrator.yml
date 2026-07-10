@@ -15,6 +15,8 @@ jobs:
   orchestrator-brain:
     name: 🧠 Orchestrator Brain
     runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
     outputs:
       custom_packages: ${{ steps.brain.outputs.custom_packages }}
       cachyos_addons: ${{ steps.brain.outputs.cachyos_addons }}
@@ -170,10 +172,12 @@ jobs:
             
             # Compute Hash matching dynamic-matrix.sh exactly
             hash=$({
-              find "specs/ermete-astal/$pkg" -type f -name "*.spec" | sort | while read -r f; do
+              find "specs/ermete-astal/$pkg" -type f | sort | while read -r f; do
+                echo -n "${f#specs/ermete-astal/$pkg/}"
                 cat "$f"
               done
               if [[ -f "config/rpmmacros" ]]; then
+                echo -n "config/rpmmacros"
                 cat "config/rpmmacros"
               fi
             } | sha256sum | awk '{print $1}')

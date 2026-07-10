@@ -13,8 +13,13 @@ readarray -t UPSTREAM_DESKTOP < <(jq -r '.upstream_desktop[]' config/packages.js
 readarray -t UPSTREAM_MEDIA < <(jq -r '.upstream_media[]' config/packages.json)
 readarray -t UPSTREAM_CLI < <(jq -r '.upstream_cli[]' config/packages.json)
 
-if ! command -v skopeo >/dev/null 2>&1; then
-  sudo apt-get update && sudo apt-get install -y skopeo
+if ! command -v skopeo >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+  if command -v dnf >/dev/null 2>&1; then
+    curl -sLo /etc/yum.repos.d/bieszczaders.repo "https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos-addons/repo/fedora-43/bieszczaders-kernel-cachyos-addons-fedora-43.repo" || true
+    dnf install -y skopeo jq
+  else
+    sudo apt-get update && sudo apt-get install -y skopeo jq
+  fi
 fi
 
 process_array() {
@@ -33,10 +38,12 @@ process_array() {
       local dir="specs/ermete-astal/${pkg}"
       if [[ -d "$dir" ]]; then
         local content_hash=$({
-          find "$dir" -type f -name "*.spec" | sort | while read -r f; do
+          find "$dir" -type f | sort | while read -r f; do
+            echo -n "${f#$dir/}"
             cat "$f"
           done
           if [[ -f "config/rpmmacros" ]]; then
+            echo -n "config/rpmmacros"
             cat "config/rpmmacros"
           fi
         } | sha256sum | awk '{print $1}')

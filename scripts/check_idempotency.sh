@@ -47,7 +47,20 @@ if [[ -n "$DIR" && -d "$DIR" ]]; then
   } | sha256sum | awk '{print $1}')
 else
   # Pacchetti upstream senza spec locale
-  CONTENT_HASH=$(echo -n "${PACKAGE}upstream-cache-v1" | sha256sum | awk '{print $1}')
+  if command -v dnf >/dev/null 2>&1; then
+    # Assicuriamoci che il repository di CachyOS sia disponibile per il repoquery
+    curl -sLo /etc/yum.repos.d/bieszczaders.repo "https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos-addons/repo/fedora-43/bieszczaders-kernel-cachyos-addons-fedora-43.repo" || true
+    # Cerchiamo la versione effettiva nei repository abilitati
+    UPSTREAM_VER=$(dnf repoquery --qf "%{VERSION}-%{RELEASE}" --arch x86_64,noarch "$PACKAGE" 2>/dev/null | sort -V | tail -n 1 || true)
+  else
+    UPSTREAM_VER=""
+  fi
+  
+  if [[ -n "$UPSTREAM_VER" ]]; then
+    CONTENT_HASH=$(echo -n "${PACKAGE}-${UPSTREAM_VER}" | sha256sum | awk '{print $1}')
+  else
+    CONTENT_HASH=$(echo -n "${PACKAGE}upstream-cache-v1" | sha256sum | awk '{print $1}')
+  fi
 fi
 
 echo ">>> Content Hash calcolato per ${PACKAGE}: ${CONTENT_HASH}" >&2
