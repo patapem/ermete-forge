@@ -13,30 +13,32 @@ IMAGES=(
   "ermete-forge-initramfs"
 )
 
+# Fetch package lists dynamically from Single Source of Truth
+readarray -t CUSTOM_PKGS < <(jq -r '.custom_packages[]' config/packages.json)
+readarray -t CACHYOS_PKGS < <(jq -r '.cachyos_addons[]' config/packages.json)
+readarray -t AGS_PKGS < <(jq -r '.ags_ecosystem[]' config/packages.json)
+readarray -t UPSTREAM_CORE < <(jq -r '.upstream_core[]' config/packages.json)
+readarray -t UPSTREAM_DESKTOP < <(jq -r '.upstream_desktop[]' config/packages.json)
+readarray -t UPSTREAM_MEDIA < <(jq -r '.upstream_media[]' config/packages.json)
+readarray -t UPSTREAM_CLI < <(jq -r '.upstream_cli[]' config/packages.json)
+
 # Custom Packages
-for pkg in starship bat selinux ananicy base-config ags-config niri-session ide-bootstrap system-services nix-support system-config system-tweaks matugen bibata; do
+for pkg in "${CUSTOM_PKGS[@]}"; do
   IMAGES+=("ermete-forge-$pkg")
 done
 
 # CachyOS Addons
-for pkg in bore-sysctl scx-scheds scx-tools; do
+for pkg in "${CACHYOS_PKGS[@]}"; do
   IMAGES+=("ermete-forge-$pkg")
 done
 
 # AGS Ecosystem
-for pkg in appmenu-glib-translator astal-io astal astal-libs astal-gjs astal-gtk4 astal-lua aylurs-gtk-shell2 hyprpanel; do
+for pkg in "${AGS_PKGS[@]}"; do
   IMAGES+=("ermete-forge-$pkg")
 done
 
 # Upstream Packages
-UPSTREAM=(
-  brightnessctl btrfs-progs dbus-tools dbus-x11 distribution-gpg-keys drm_info file-roller firewalld fuse fwupd gnome-keyring gnome-keyring-pam greenboot greenboot-default-health-checks gvfs libnotify libxcrypt-compat lm_sensors mokutil nftables openssl qemu-kvm sbsigntools squashfuse sysstat upower virt-manager
-  niri adw-gtk3-theme fontawesome-fonts-all foot greetd gtk4-layer-shell gtk-layer-shell jetbrains-mono-fonts papirus-icon-theme qt5-qtwayland qt6-qtwayland rsms-inter-fonts swaybg swaylock thunar thunar-archive-plugin thunar-volman wayland-utils xdg-desktop-portal-gnome xdg-desktop-portal-gtk xdg-user-dirs xdg-user-dirs-gtk xorg-x11-server-Xwayland
-  pipewire nodejs npm ffmpeg mpv wireplumber x264 libva-nvidia-driver libva-utils imv mesa-dri-drivers mesa-vulkan-drivers
-  btop eza fd-find git inotify-tools just nushell parallel playerctl ripgrep rsync sqlite unzip wl-clipboard wl-mirror wlr-randr
-)
-
-for pkg in "${UPSTREAM[@]}"; do
+for pkg in "${UPSTREAM_CORE[@]}" "${UPSTREAM_DESKTOP[@]}" "${UPSTREAM_MEDIA[@]}" "${UPSTREAM_CLI[@]}"; do
   IMAGES+=("ermete-forge-rolling-$pkg")
 done
 
@@ -46,7 +48,7 @@ for img in "${IMAGES[@]}"; do
   IMAGE_LOWER=$(echo "ghcr.io/$OWNER/$img:latest" | tr '[:upper:]' '[:lower:]')
   echo ">>> Pulling $IMAGE_LOWER"
   
-  # Best effort: if a container is missing (e.g. failed to build), we just skip it
+  # Best effort: se un container manca (es. build fallita), lo skippiamo
   ctr=$(buildah from "$IMAGE_LOWER" || true)
   if [ -n "$ctr" ]; then
     mnt=$(buildah mount $ctr)

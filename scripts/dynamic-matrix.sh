@@ -4,14 +4,14 @@ set -euo pipefail
 REGISTRY="ghcr.io"
 OWNER="${GITHUB_REPOSITORY_OWNER:-patapem}"
 
-CUSTOM_PKGS=("starship" "bat" "selinux" "ananicy" "base-config" "desktop-ui" "ide-bootstrap" "system-services" "nix-support" "system-config" "system-tweaks" "matugen" "bibata")
-CACHYOS_PKGS=("bore-sysctl" "scx-scheds" "scx-tools")
-UPSTREAM_CORE=("brightnessctl" "btrfs-progs" "dbus-tools" "dbus-x11" "distribution-gpg-keys" "drm_info" "file-roller" "firewalld" "fuse" "fwupd" "gnome-keyring" "gnome-keyring-pam" "greenboot" "greenboot-default-health-checks" "gvfs" "libnotify" "libxcrypt-compat" "lm_sensors" "mokutil" "nftables" "openssl" "qemu-kvm" "sbsigntools" "squashfuse" "sysstat" "upower" "virt-manager")
-UPSTREAM_DESKTOP=("niri" "adw-gtk3-theme" "fontawesome-fonts-all" "foot" "greetd" "gtk4-layer-shell" "gtk-layer-shell" "jetbrains-mono-fonts" "papirus-icon-theme" "qt5-qtwayland" "qt6-qtwayland" "rsms-inter-fonts" "swaybg", "swaylock" "thunar" "thunar-archive-plugin" "thunar-volman" "wayland-utils" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "xdg-user-dirs" "xdg-user-dirs-gtk" "xorg-x11-server-Xwayland")
-UPSTREAM_MEDIA=("pipewire" "nodejs" "npm" "ffmpeg", "mpv", "wireplumber", "x264", "libva-nvidia-driver", "libva-utils", "imv", "mesa-dri-drivers", "mesa-vulkan-drivers")
-UPSTREAM_CLI=("btop" "eza" "fd-find" "git" "inotify-tools" "just" "nushell" "parallel" "playerctl", "ripgrep", "rsync", "sqlite", "unzip", "wl-clipboard", "wl-mirror", "wlr-randr")
+# Fetch arrays dynamically from Single Source of Truth
+readarray -t CUSTOM_PKGS < <(jq -r '.custom_packages[]' config/packages.json)
+readarray -t CACHYOS_PKGS < <(jq -r '.cachyos_addons[]' config/packages.json)
+readarray -t UPSTREAM_CORE < <(jq -r '.upstream_core[]' config/packages.json)
+readarray -t UPSTREAM_DESKTOP < <(jq -r '.upstream_desktop[]' config/packages.json)
+readarray -t UPSTREAM_MEDIA < <(jq -r '.upstream_media[]' config/packages.json)
+readarray -t UPSTREAM_CLI < <(jq -r '.upstream_cli[]' config/packages.json)
 
-# Assicuriamoci che skopeo sia installato
 if ! command -v skopeo >/dev/null 2>&1; then
   sudo apt-get update && sudo apt-get install -y skopeo
 fi
