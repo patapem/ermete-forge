@@ -5,6 +5,10 @@ use chrono::Local;
 
 const APP_ID: &str = "os.ermete.Shell";
 
+fn current_time_string() -> String {
+    Local::now().format("%H:%M - %A %d %b").to_string()
+}
+
 fn main() -> glib::ExitCode {
     let app = Application::builder().application_id(APP_ID).build();
     app.connect_activate(build_ui);
@@ -37,16 +41,16 @@ fn build_ui(app: &Application) {
         .margin_end(12)
         .build();
         
-    let time_label = Label::new(Some(&Local::now().format("%H:%M - %A %d %b").to_string()));
+    let time_label = Label::new(Some(&current_time_string()));
     time_label.set_halign(Align::Center);
     time_label.set_hexpand(true);
     
     hbox.append(&time_label);
     window.set_child(Some(&hbox));
     
-    // Auto-update clock every minute
-    glib::timeout_add_seconds_local(60, glib::clone!(@weak time_label => @default-return glib::ControlFlow::Break, move || {
-        time_label.set_label(&Local::now().format("%H:%M - %A %d %b").to_string());
+    // Auto-update clock every second
+    glib::timeout_add_seconds_local(1, glib::clone!(@weak time_label => @default-return glib::ControlFlow::Break, move || {
+        time_label.set_label(&current_time_string());
         glib::ControlFlow::Continue
     }));
 
