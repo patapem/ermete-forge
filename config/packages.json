@@ -14,7 +14,8 @@
     "matugen",
     "bibata",
     "dart-sass",
-    "shell-rs"
+    "shell-rs",
+    "cliphist"
   ],
   "cachyos_addons": [],
   "ags_ecosystem": [

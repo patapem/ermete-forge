@@ -14,6 +14,7 @@ Obsoletes:      ermete-niri-session < 1.0.0-3
 
 Requires:       ags
 Requires:       lxpolkit
+Requires:       cliphist
 Requires:       swayidle
 Requires:       ddcutil
 Requires:       dart-sass
