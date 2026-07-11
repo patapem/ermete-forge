@@ -5,7 +5,7 @@ use gtk4::gio::AppInfo;
 use gtk4::prelude::*;
 use gtk4::{
     Align, Application, ApplicationWindow, Box as GtkBox, Button, Calendar, CenterBox, CssProvider,
-    Entry, Label, Orientation, Scale, ScrolledWindow,
+    Entry, Label, Orientation, ProgressBar, Scale, ScrolledWindow,
 };
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use std::env;
@@ -259,6 +259,34 @@ window.popup-window {
     background: rgba(255, 69, 58, 0.45);
     color: #ffffff;
 }
+
+progressbar.cc-progress-blue trough {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    min-height: 8px;
+}
+progressbar.cc-progress-blue progress {
+    background: #0a84ff;
+    border-radius: 6px;
+    min-height: 8px;
+}
+progressbar.cc-progress-indigo trough {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    min-height: 8px;
+}
+progressbar.cc-progress-indigo progress {
+    background: #5e5ce6;
+    border-radius: 6px;
+    min-height: 8px;
+}
+.applet-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: #f8fafc;
+}
 "#;
 
 // Orologio macOS: "sab 11 lug 14:47"
@@ -420,6 +448,318 @@ fn build_cc_compact_tile(badge_class: &str, icon_glyph: &str, title: &str) -> Bu
     btn
 }
 
+fn get_ram_info() -> (String, f64) {
+    let mut total_kb = 0.0;
+    let mut avail_kb = 0.0;
+    if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+        for line in content.lines() {
+            if line.starts_with("MemTotal:") {
+                if let Some(val) = line.split_whitespace().nth(1) {
+                    total_kb = val.parse::<f64>().unwrap_or(0.0);
+                }
+            } else if line.starts_with("MemAvailable:") {
+                if let Some(val) = line.split_whitespace().nth(1) {
+                    avail_kb = val.parse::<f64>().unwrap_or(0.0);
+                }
+            }
+        }
+    }
+    if total_kb > 0.0 {
+        let used_kb = total_kb - avail_kb;
+        let frac = (used_kb / total_kb).clamp(0.0, 1.0);
+        let used_gb = used_kb / 1048576.0;
+        let total_gb = total_kb / 1048576.0;
+        (
+            format!("{:.1} GB / {:.1} GB ({:.0}%)", used_gb, total_gb, frac * 100.0),
+            frac,
+        )
+    } else {
+        ("N/D".to_string(), 0.0)
+    }
+}
+
+fn get_cpu_load() -> (String, f64) {
+    if let Ok(content) = std::fs::read_to_string("/proc/loadavg") {
+        if let Some(load_str) = content.split_whitespace().next() {
+            let load = load_str.parse::<f64>().unwrap_or(0.0);
+            let frac = (load / 4.0).clamp(0.0, 1.0);
+            return (format!("Carico 1m: {}", load_str), frac);
+        }
+    }
+    ("N/D".to_string(), 0.0)
+}
+
+fn show_system_monitor_modal(app: &Application) {
+    let pop = ApplicationWindow::builder()
+        .application(app)
+        .title("Monitor Risorse")
+        .css_classes(["popup-window"])
+        .default_width(340)
+        .build();
+
+    pop.init_layer_shell();
+    pop.set_layer(Layer::Overlay);
+    pop.set_anchor(Edge::Top, true);
+    pop.set_anchor(Edge::Right, true);
+    pop.set_margin(Edge::Top, 34);
+    pop.set_margin(Edge::Right, 50);
+
+    let card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(14)
+        .css_classes(["cc-card"])
+        .build();
+
+    let header = Label::builder()
+        .label("MONITOR RISORSE ERMETE OS")
+        .css_classes(["cc-label-sub"])
+        .halign(Align::Start)
+        .build();
+
+    // CPU Section
+    let (cpu_text, cpu_frac) = get_cpu_load();
+    let cpu_lbl = Label::builder()
+        .label(&format!("Processore (CPU) — {}", cpu_text))
+        .css_classes(["cc-label-main"])
+        .halign(Align::Start)
+        .build();
+    let cpu_bar = ProgressBar::builder()
+        .fraction(cpu_frac)
+        .css_classes(["cc-progress-blue"])
+        .build();
+
+    // RAM Section
+    let (ram_text, ram_frac) = get_ram_info();
+    let ram_lbl = Label::builder()
+        .label(&format!("Memoria RAM — {}", ram_text))
+        .css_classes(["cc-label-main"])
+        .halign(Align::Start)
+        .build();
+    let ram_bar = ProgressBar::builder()
+        .fraction(ram_frac)
+        .css_classes(["cc-progress-indigo"])
+        .build();
+
+    // System Info
+    let sys_info = Label::builder()
+        .label("Sistema: Ermete OS (Wayland / Niri)")
+        .css_classes(["cc-label-sub"])
+        .halign(Align::Start)
+        .build();
+
+    let close_btn = Button::builder()
+        .label("Chiudi")
+        .css_classes(["cc-quick-btn"])
+        .build();
+    let pop_clone = pop.clone();
+    close_btn.connect_clicked(move |_| {
+        pop_clone.close();
+    });
+
+    card.append(&header);
+    card.append(&cpu_lbl);
+    card.append(&cpu_bar);
+    card.append(&ram_lbl);
+    card.append(&ram_bar);
+    card.append(&sys_info);
+    card.append(&close_btn);
+
+    pop.set_child(Some(&card));
+    pop.present();
+}
+
+fn show_wifi_popover(app: &Application) {
+    let pop = ApplicationWindow::builder()
+        .application(app)
+        .title("Reti Wi-Fi")
+        .css_classes(["popup-window"])
+        .default_width(340)
+        .build();
+
+    pop.init_layer_shell();
+    pop.set_layer(Layer::Overlay);
+    pop.set_anchor(Edge::Top, true);
+    pop.set_anchor(Edge::Right, true);
+    pop.set_margin(Edge::Top, 34);
+    pop.set_margin(Edge::Right, 50);
+
+    let card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .css_classes(["cc-card"])
+        .build();
+
+    let header = Label::builder()
+        .label("RETI WI-FI RILEVATE")
+        .css_classes(["cc-label-sub"])
+        .halign(Align::Start)
+        .build();
+
+    let list_box = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(8)
+        .build();
+
+    if let Ok(output) = Command::new("nmcli")
+        .args(["-t", "-f", "IN-USE,SSID,SIGNAL", "device", "wifi", "list"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut count = 0;
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() >= 3 && !parts[1].is_empty() && count < 8 {
+                let active = parts[0] == "*";
+                let ssid = parts[1];
+                let sig = parts[2].parse::<i32>().unwrap_or(50);
+                let icon = if sig > 75 {
+                    "󰤨"
+                } else if sig > 40 {
+                    "󰤥"
+                } else {
+                    "󰤢"
+                };
+
+                let item_row = GtkBox::builder()
+                    .orientation(Orientation::Horizontal)
+                    .spacing(10)
+                    .css_classes(["applet-item"])
+                    .build();
+
+                let icon_lbl = Label::builder().label(icon).build();
+                let ssid_lbl = Label::builder()
+                    .label(ssid)
+                    .hexpand(true)
+                    .halign(Align::Start)
+                    .build();
+                let status_lbl = Label::builder()
+                    .label(if active { "Connesso" } else { "" })
+                    .css_classes(["cc-label-sub"])
+                    .build();
+
+                item_row.append(&icon_lbl);
+                item_row.append(&ssid_lbl);
+                item_row.append(&status_lbl);
+                list_box.append(&item_row);
+                count += 1;
+            }
+        }
+        if count == 0 {
+            let no_wifi = Label::builder()
+                .label("Nessuna rete Wi-Fi rilevata")
+                .css_classes(["cc-label-sub"])
+                .build();
+            list_box.append(&no_wifi);
+        }
+    } else {
+        let err_lbl = Label::builder()
+            .label("Impossibile interrogare NetworkManager")
+            .css_classes(["cc-label-sub"])
+            .build();
+        list_box.append(&err_lbl);
+    }
+
+    let close_btn = Button::builder()
+        .label("Chiudi")
+        .css_classes(["cc-quick-btn"])
+        .build();
+    let pop_clone = pop.clone();
+    close_btn.connect_clicked(move |_| {
+        pop_clone.close();
+    });
+
+    card.append(&header);
+    card.append(&list_box);
+    card.append(&close_btn);
+
+    pop.set_child(Some(&card));
+    pop.present();
+}
+
+fn show_bluetooth_popover(app: &Application) {
+    let pop = ApplicationWindow::builder()
+        .application(app)
+        .title("Bluetooth")
+        .css_classes(["popup-window"])
+        .default_width(340)
+        .build();
+
+    pop.init_layer_shell();
+    pop.set_layer(Layer::Overlay);
+    pop.set_anchor(Edge::Top, true);
+    pop.set_anchor(Edge::Right, true);
+    pop.set_margin(Edge::Top, 34);
+    pop.set_margin(Edge::Right, 50);
+
+    let card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .css_classes(["cc-card"])
+        .build();
+
+    let header = Label::builder()
+        .label("DISPOSITIVI BLUETOOTH")
+        .css_classes(["cc-label-sub"])
+        .halign(Align::Start)
+        .build();
+
+    let list_box = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(8)
+        .build();
+
+    if let Ok(output) = Command::new("bluetoothctl").arg("devices").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut count = 0;
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.splitn(3, ' ').collect();
+            if parts.len() >= 3 && count < 8 {
+                let name = parts[2];
+                let item_row = GtkBox::builder()
+                    .orientation(Orientation::Horizontal)
+                    .spacing(10)
+                    .css_classes(["applet-item"])
+                    .build();
+
+                let icon_lbl = Label::builder().label("").build();
+                let name_lbl = Label::builder()
+                    .label(name)
+                    .hexpand(true)
+                    .halign(Align::Start)
+                    .build();
+
+                item_row.append(&icon_lbl);
+                item_row.append(&name_lbl);
+                list_box.append(&item_row);
+                count += 1;
+            }
+        }
+        if count == 0 {
+            let no_bt = Label::builder()
+                .label("Nessun dispositivo rilevato")
+                .css_classes(["cc-label-sub"])
+                .build();
+            list_box.append(&no_bt);
+        }
+    }
+
+    let close_btn = Button::builder()
+        .label("Chiudi")
+        .css_classes(["cc-quick-btn"])
+        .build();
+    let pop_clone = pop.clone();
+    close_btn.connect_clicked(move |_| {
+        pop_clone.close();
+    });
+
+    card.append(&header);
+    card.append(&list_box);
+    card.append(&close_btn);
+
+    pop.set_child(Some(&card));
+    pop.present();
+}
+
 // macOS Control Center Popover (Clic su ❖)
 fn show_control_center_popover(app: &Application) {
     let pop = ApplicationWindow::builder()
@@ -456,30 +796,26 @@ fn show_control_center_popover(app: &Application) {
         .hexpand(true)
         .build();
 
-    let wifi_btn = build_cc_row("cc-circle-blue", "", "Rete Wi-Fi", "Gestione Rete");
+    let wifi_btn = build_cc_row("cc-circle-blue", "", "Rete Wi-Fi", "Reti Rilevate");
+    let app_wifi = app.clone();
+    let pop_wifi = pop.clone();
     wifi_btn.connect_clicked(move |_| {
-        let _ = Command::new("foot")
-            .args([
-                "--title",
-                "Gestione Rete Wi-Fi",
-                "-e",
-                "sh",
-                "-c",
-                "nmcli device status && echo '' && nmcli connection show && echo '' && read -p 'Premi Invio per chiudere...'",
-            ])
-            .spawn();
+        pop_wifi.close();
+        show_wifi_popover(&app_wifi);
     });
     let bt_btn = build_cc_row("cc-circle-blue", "", "Bluetooth", "Dispositivi");
+    let app_bt = app.clone();
+    let pop_bt = pop.clone();
     bt_btn.connect_clicked(move |_| {
-        let _ = Command::new("foot")
-            .args(["--title", "Gestione Bluetooth", "-e", "bluetoothctl"])
-            .spawn();
+        pop_bt.close();
+        show_bluetooth_popover(&app_bt);
     });
-    let sys_btn = build_cc_row("cc-circle-blue", "⚙", "Risorse", "Monitor btop");
+    let sys_btn = build_cc_row("cc-circle-blue", "⚙", "Risorse", "Monitor Live");
+    let app_sys = app.clone();
+    let pop_sys = pop.clone();
     sys_btn.connect_clicked(move |_| {
-        let _ = Command::new("foot")
-            .args(["--title", "Ermete System Monitor", "-e", "btop"])
-            .spawn();
+        pop_sys.close();
+        show_system_monitor_modal(&app_sys);
     });
 
     conn_box.append(&wifi_btn);
