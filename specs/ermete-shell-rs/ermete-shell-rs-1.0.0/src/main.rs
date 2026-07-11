@@ -5,7 +5,7 @@ use gtk4::gio::AppInfo;
 use gtk4::prelude::*;
 use gtk4::{
     Align, Application, ApplicationWindow, Box as GtkBox, Button, Calendar, CenterBox, CssProvider,
-    Entry, Label, Orientation, ProgressBar, Scale, ScrolledWindow,
+    Entry, Label, Orientation, ProgressBar, Scale, ScrolledWindow, Switch,
 };
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use std::env;
@@ -287,6 +287,30 @@ progressbar.cc-progress-indigo progress {
     padding: 8px 12px;
     color: #f8fafc;
 }
+
+.metric-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 14px;
+    padding: 14px 16px;
+}
+.metric-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: #ffffff;
+}
+.pro-applet-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 14px;
+}
+.applet-header-card {
+    background: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 12px 16px;
+}
 "#;
 
 // Orologio macOS: "sab 11 lug 14:47"
@@ -494,7 +518,7 @@ fn show_system_monitor_modal(app: &Application) {
         .application(app)
         .title("Monitor Risorse")
         .css_classes(["popup-window"])
-        .default_width(340)
+        .default_width(360)
         .build();
 
     pop.init_layer_shell();
@@ -511,38 +535,75 @@ fn show_system_monitor_modal(app: &Application) {
         .build();
 
     let header = Label::builder()
-        .label("MONITOR RISORSE ERMETE OS")
+        .label("MONITOR DI SISTEMA — ERMETE OS")
         .css_classes(["cc-label-sub"])
         .halign(Align::Start)
         .build();
 
-    // CPU Section
+    // CPU Metric Card
     let (cpu_text, cpu_frac) = get_cpu_load();
-    let cpu_lbl = Label::builder()
-        .label(&format!("Processore (CPU) — {}", cpu_text))
-        .css_classes(["cc-label-main"])
+    let cpu_card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(8)
+        .css_classes(["metric-card"])
+        .build();
+    let cpu_top = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(10)
+        .build();
+    let cpu_val_lbl = Label::builder()
+        .label(&format!("{:.0}%", cpu_frac * 100.0))
+        .css_classes(["metric-value"])
         .halign(Align::Start)
         .build();
+    let cpu_desc = Label::builder()
+        .label(&format!("Processore\n{}", cpu_text))
+        .css_classes(["cc-label-sub"])
+        .halign(Align::Start)
+        .hexpand(true)
+        .build();
+    cpu_top.append(&cpu_val_lbl);
+    cpu_top.append(&cpu_desc);
     let cpu_bar = ProgressBar::builder()
         .fraction(cpu_frac)
         .css_classes(["cc-progress-blue"])
         .build();
+    cpu_card.append(&cpu_top);
+    cpu_card.append(&cpu_bar);
 
-    // RAM Section
+    // RAM Metric Card
     let (ram_text, ram_frac) = get_ram_info();
-    let ram_lbl = Label::builder()
-        .label(&format!("Memoria RAM — {}", ram_text))
-        .css_classes(["cc-label-main"])
+    let ram_card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(8)
+        .css_classes(["metric-card"])
+        .build();
+    let ram_top = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(10)
+        .build();
+    let ram_val_lbl = Label::builder()
+        .label(&format!("{:.0}%", ram_frac * 100.0))
+        .css_classes(["metric-value"])
         .halign(Align::Start)
         .build();
+    let ram_desc = Label::builder()
+        .label(&format!("Memoria RAM\n{}", ram_text))
+        .css_classes(["cc-label-sub"])
+        .halign(Align::Start)
+        .hexpand(true)
+        .build();
+    ram_top.append(&ram_val_lbl);
+    ram_top.append(&ram_desc);
     let ram_bar = ProgressBar::builder()
         .fraction(ram_frac)
         .css_classes(["cc-progress-indigo"])
         .build();
+    ram_card.append(&ram_top);
+    ram_card.append(&ram_bar);
 
-    // System Info
     let sys_info = Label::builder()
-        .label("Sistema: Ermete OS (Wayland / Niri)")
+        .label("Wayland / Niri Compositor — Forgia Atomica RPM")
         .css_classes(["cc-label-sub"])
         .halign(Align::Start)
         .build();
@@ -557,10 +618,8 @@ fn show_system_monitor_modal(app: &Application) {
     });
 
     card.append(&header);
-    card.append(&cpu_lbl);
-    card.append(&cpu_bar);
-    card.append(&ram_lbl);
-    card.append(&ram_bar);
+    card.append(&cpu_card);
+    card.append(&ram_card);
     card.append(&sys_info);
     card.append(&close_btn);
 
@@ -573,7 +632,7 @@ fn show_wifi_popover(app: &Application) {
         .application(app)
         .title("Reti Wi-Fi")
         .css_classes(["popup-window"])
-        .default_width(340)
+        .default_width(360)
         .build();
 
     pop.init_layer_shell();
@@ -585,15 +644,27 @@ fn show_wifi_popover(app: &Application) {
 
     let card = GtkBox::builder()
         .orientation(Orientation::Vertical)
-        .spacing(12)
+        .spacing(14)
         .css_classes(["cc-card"])
         .build();
 
-    let header = Label::builder()
-        .label("RETI WI-FI RILEVATE")
-        .css_classes(["cc-label-sub"])
-        .halign(Align::Start)
+    let header_card = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .css_classes(["applet-header-card"])
+        .valign(Align::Center)
         .build();
+    let header_icon = Label::builder().label("").css_classes(["cc-circle-blue"]).build();
+    let header_lbl = Label::builder().label("Rete Wi-Fi").css_classes(["cc-label-main"]).hexpand(true).halign(Align::Start).build();
+    let wifi_sw = Switch::builder().active(true).valign(Align::Center).build();
+    wifi_sw.connect_state_set(move |_, state| {
+        let cmd = if state { "on" } else { "off" };
+        let _ = Command::new("nmcli").args(["radio", "wifi", cmd]).spawn();
+        glib::Propagation::Proceed
+    });
+    header_card.append(&header_icon);
+    header_card.append(&header_lbl);
+    header_card.append(&wifi_sw);
 
     let list_box = GtkBox::builder()
         .orientation(Orientation::Vertical)
@@ -623,23 +694,32 @@ fn show_wifi_popover(app: &Application) {
                 let item_row = GtkBox::builder()
                     .orientation(Orientation::Horizontal)
                     .spacing(10)
-                    .css_classes(["applet-item"])
+                    .css_classes(["pro-applet-card"])
                     .build();
 
                 let icon_lbl = Label::builder().label(icon).build();
+                let texts = GtkBox::builder().orientation(Orientation::Vertical).hexpand(true).build();
                 let ssid_lbl = Label::builder()
                     .label(ssid)
-                    .hexpand(true)
+                    .css_classes(["cc-label-main"])
                     .halign(Align::Start)
                     .build();
                 let status_lbl = Label::builder()
-                    .label(if active { "Connesso" } else { "" })
+                    .label(if active { "Connesso — Sicuro" } else { "Disponibile" })
                     .css_classes(["cc-label-sub"])
+                    .halign(Align::Start)
                     .build();
+                texts.append(&ssid_lbl);
+                texts.append(&status_lbl);
 
                 item_row.append(&icon_lbl);
-                item_row.append(&ssid_lbl);
-                item_row.append(&status_lbl);
+                item_row.append(&texts);
+
+                if active {
+                    let check_lbl = Label::builder().label("✓").css_classes(["cc-label-main"]).build();
+                    item_row.append(&check_lbl);
+                }
+
                 list_box.append(&item_row);
                 count += 1;
             }
@@ -660,7 +740,7 @@ fn show_wifi_popover(app: &Application) {
     }
 
     let close_btn = Button::builder()
-        .label("Chiudi")
+        .label("Fine")
         .css_classes(["cc-quick-btn"])
         .build();
     let pop_clone = pop.clone();
@@ -668,7 +748,7 @@ fn show_wifi_popover(app: &Application) {
         pop_clone.close();
     });
 
-    card.append(&header);
+    card.append(&header_card);
     card.append(&list_box);
     card.append(&close_btn);
 
@@ -681,7 +761,7 @@ fn show_bluetooth_popover(app: &Application) {
         .application(app)
         .title("Bluetooth")
         .css_classes(["popup-window"])
-        .default_width(340)
+        .default_width(360)
         .build();
 
     pop.init_layer_shell();
@@ -693,15 +773,27 @@ fn show_bluetooth_popover(app: &Application) {
 
     let card = GtkBox::builder()
         .orientation(Orientation::Vertical)
-        .spacing(12)
+        .spacing(14)
         .css_classes(["cc-card"])
         .build();
 
-    let header = Label::builder()
-        .label("DISPOSITIVI BLUETOOTH")
-        .css_classes(["cc-label-sub"])
-        .halign(Align::Start)
+    let header_card = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .css_classes(["applet-header-card"])
+        .valign(Align::Center)
         .build();
+    let header_icon = Label::builder().label("").css_classes(["cc-circle-blue"]).build();
+    let header_lbl = Label::builder().label("Bluetooth").css_classes(["cc-label-main"]).hexpand(true).halign(Align::Start).build();
+    let bt_sw = Switch::builder().active(true).valign(Align::Center).build();
+    bt_sw.connect_state_set(move |_, state| {
+        let cmd = if state { "on" } else { "off" };
+        let _ = Command::new("bluetoothctl").args(["power", cmd]).spawn();
+        glib::Propagation::Proceed
+    });
+    header_card.append(&header_icon);
+    header_card.append(&header_lbl);
+    header_card.append(&bt_sw);
 
     let list_box = GtkBox::builder()
         .orientation(Orientation::Vertical)
@@ -718,25 +810,29 @@ fn show_bluetooth_popover(app: &Application) {
                 let item_row = GtkBox::builder()
                     .orientation(Orientation::Horizontal)
                     .spacing(10)
-                    .css_classes(["applet-item"])
+                    .css_classes(["pro-applet-card"])
                     .build();
 
                 let icon_lbl = Label::builder().label("").build();
+                let texts = GtkBox::builder().orientation(Orientation::Vertical).hexpand(true).build();
                 let name_lbl = Label::builder()
                     .label(name)
-                    .hexpand(true)
+                    .css_classes(["cc-label-main"])
                     .halign(Align::Start)
                     .build();
+                let sub_lbl = Label::builder().label("Dispositivo Rilevato").css_classes(["cc-label-sub"]).halign(Align::Start).build();
+                texts.append(&name_lbl);
+                texts.append(&sub_lbl);
 
                 item_row.append(&icon_lbl);
-                item_row.append(&name_lbl);
+                item_row.append(&texts);
                 list_box.append(&item_row);
                 count += 1;
             }
         }
         if count == 0 {
             let no_bt = Label::builder()
-                .label("Nessun dispositivo rilevato")
+                .label("Nessun dispositivo accoppiato")
                 .css_classes(["cc-label-sub"])
                 .build();
             list_box.append(&no_bt);
@@ -744,7 +840,7 @@ fn show_bluetooth_popover(app: &Application) {
     }
 
     let close_btn = Button::builder()
-        .label("Chiudi")
+        .label("Fine")
         .css_classes(["cc-quick-btn"])
         .build();
     let pop_clone = pop.clone();
@@ -752,8 +848,120 @@ fn show_bluetooth_popover(app: &Application) {
         pop_clone.close();
     });
 
-    card.append(&header);
+    card.append(&header_card);
     card.append(&list_box);
+    card.append(&close_btn);
+
+    pop.set_child(Some(&card));
+    pop.present();
+}
+
+fn show_audio_mixer_popover(app: &Application) {
+    let pop = ApplicationWindow::builder()
+        .application(app)
+        .title("Mixer Audio")
+        .css_classes(["popup-window"])
+        .default_width(360)
+        .build();
+
+    pop.init_layer_shell();
+    pop.set_layer(Layer::Overlay);
+    pop.set_anchor(Edge::Top, true);
+    pop.set_anchor(Edge::Right, true);
+    pop.set_margin(Edge::Top, 34);
+    pop.set_margin(Edge::Right, 50);
+
+    let card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(14)
+        .css_classes(["cc-card"])
+        .build();
+
+    let header_card = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .css_classes(["applet-header-card"])
+        .valign(Align::Center)
+        .build();
+    let header_icon = Label::builder().label("🎚️").css_classes(["cc-slider-icon"]).build();
+    let header_texts = GtkBox::builder().orientation(Orientation::Vertical).hexpand(true).build();
+    let title_lbl = Label::builder().label("MIXER AUDIO ERMETE OS").css_classes(["cc-label-main"]).halign(Align::Start).build();
+    let sub_lbl = Label::builder().label("PipeWire / WirePlumber").css_classes(["cc-label-sub"]).halign(Align::Start).build();
+    header_texts.append(&title_lbl);
+    header_texts.append(&sub_lbl);
+    header_card.append(&header_icon);
+    header_card.append(&header_texts);
+
+    // Sezione Uscita Audio
+    let out_card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(10)
+        .css_classes(["pro-applet-card"])
+        .build();
+    let out_header = GtkBox::builder().orientation(Orientation::Horizontal).spacing(8).build();
+    let out_lbl = Label::builder().label("🔊  Uscita Audio (Speaker/Cuffie)").css_classes(["cc-label-main"]).hexpand(true).halign(Align::Start).build();
+    let mute_out_btn = Button::builder().label("Muto").css_classes(["cc-quick-btn"]).build();
+    mute_out_btn.connect_clicked(move |_| {
+        let _ = Command::new("wpctl").args(["set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]).spawn();
+    });
+    out_header.append(&out_lbl);
+    out_header.append(&mute_out_btn);
+
+    let out_slider = Scale::with_range(Orientation::Horizontal, 0.0, 100.0, 1.0);
+    out_slider.set_value(80.0);
+    out_slider.set_hexpand(true);
+    out_slider.connect_value_changed(move |s| {
+        let val = s.value() as i32;
+        let _ = Command::new("wpctl")
+            .arg("set-volume")
+            .arg("@DEFAULT_AUDIO_SINK@")
+            .arg(format!("{}%", val))
+            .spawn();
+    });
+    out_card.append(&out_header);
+    out_card.append(&out_slider);
+
+    // Sezione Ingresso Microfono
+    let in_card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(10)
+        .css_classes(["pro-applet-card"])
+        .build();
+    let in_header = GtkBox::builder().orientation(Orientation::Horizontal).spacing(8).build();
+    let in_lbl = Label::builder().label("🎙  Ingresso Audio (Microfono)").css_classes(["cc-label-main"]).hexpand(true).halign(Align::Start).build();
+    let mute_in_btn = Button::builder().label("Muto").css_classes(["cc-quick-btn"]).build();
+    mute_in_btn.connect_clicked(move |_| {
+        let _ = Command::new("wpctl").args(["set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]).spawn();
+    });
+    in_header.append(&in_lbl);
+    in_header.append(&mute_in_btn);
+
+    let in_slider = Scale::with_range(Orientation::Horizontal, 0.0, 100.0, 1.0);
+    in_slider.set_value(75.0);
+    in_slider.set_hexpand(true);
+    in_slider.connect_value_changed(move |s| {
+        let val = s.value() as i32;
+        let _ = Command::new("wpctl")
+            .arg("set-volume")
+            .arg("@DEFAULT_AUDIO_SOURCE@")
+            .arg(format!("{}%", val))
+            .spawn();
+    });
+    in_card.append(&in_header);
+    in_card.append(&in_slider);
+
+    let close_btn = Button::builder()
+        .label("Fine")
+        .css_classes(["cc-quick-btn"])
+        .build();
+    let pop_clone = pop.clone();
+    close_btn.connect_clicked(move |_| {
+        pop_clone.close();
+    });
+
+    card.append(&header_card);
+    card.append(&out_card);
+    card.append(&in_card);
     card.append(&close_btn);
 
     pop.set_child(Some(&card));
@@ -933,10 +1141,11 @@ fn show_control_center_popover(app: &Application) {
         .label("🎚️   Mixer")
         .css_classes(["cc-quick-btn"])
         .build();
+    let app_mixer = app.clone();
+    let pop_mixer = pop.clone();
     mixer_btn.connect_clicked(move |_| {
-        let _ = Command::new("foot")
-            .args(["--title", "PipeWire Audio Top", "-e", "pw-top"])
-            .spawn();
+        pop_mixer.close();
+        show_audio_mixer_popover(&app_mixer);
     });
 
     let term_btn = Button::builder()
