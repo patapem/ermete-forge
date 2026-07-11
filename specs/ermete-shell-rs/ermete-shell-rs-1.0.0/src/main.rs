@@ -5,7 +5,7 @@ use gtk4::gio::AppInfo;
 use gtk4::prelude::*;
 use gtk4::{
     Align, Application, ApplicationWindow, Box as GtkBox, Button, Calendar, CenterBox, CssProvider,
-    Entry, Label, Orientation, ProgressBar, Scale, ScrolledWindow, Switch,
+    Entry, Label, Orientation, PasswordEntry, ProgressBar, Scale, ScrolledWindow, Switch,
 };
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use std::env;
@@ -310,6 +310,26 @@ progressbar.cc-progress-indigo progress {
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 14px;
     padding: 12px 16px;
+}
+.pro-applet-card-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: #ffffff;
+    transition: all 0.15s ease;
+}
+.pro-applet-card-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.20);
+}
+.wifi-pwd-entry {
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: #ffffff;
+    min-height: 38px;
 }
 "#;
 
@@ -627,6 +647,127 @@ fn show_system_monitor_modal(app: &Application) {
     pop.present();
 }
 
+fn show_wifi_password_modal(app: &Application, ssid: &str) {
+    let pop = ApplicationWindow::builder()
+        .application(app)
+        .title("Autenticazione Wi-Fi")
+        .css_classes(["popup-window"])
+        .default_width(380)
+        .build();
+
+    pop.init_layer_shell();
+    pop.set_layer(Layer::Overlay);
+    pop.set_anchor(Edge::Top, true);
+    pop.set_anchor(Edge::Right, true);
+    pop.set_margin(Edge::Top, 60);
+    pop.set_margin(Edge::Right, 80);
+
+    let card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(14)
+        .css_classes(["cc-card"])
+        .build();
+
+    // Header
+    let header_card = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .css_classes(["applet-header-card"])
+        .valign(Align::Center)
+        .build();
+    let header_icon = Label::builder().label("").css_classes(["cc-circle-blue"]).build();
+    let texts_box = GtkBox::builder().orientation(Orientation::Vertical).spacing(2).hexpand(true).build();
+    let title_lbl = Label::builder().label("Accedi alla rete Wi-Fi").css_classes(["cc-label-main"]).halign(Align::Start).build();
+    let sub_lbl = Label::builder().label(format!("Rete: {}", ssid)).css_classes(["cc-label-sub"]).halign(Align::Start).build();
+    texts_box.append(&title_lbl);
+    texts_box.append(&sub_lbl);
+    header_card.append(&header_icon);
+    header_card.append(&texts_box);
+
+    // Password field
+    let pwd_entry = PasswordEntry::builder()
+        .placeholder_text("Inserisci la password Wi-Fi...")
+        .show_peek_icon(true)
+        .css_classes(["wifi-pwd-entry"])
+        .hexpand(true)
+        .build();
+
+    // Security note
+    let sec_note = Label::builder()
+        .label("🔒  NetworkManager memorizzerà questa password per la riconnessione automatica.")
+        .css_classes(["cc-label-sub"])
+        .wrap(true)
+        .halign(Align::Start)
+        .build();
+
+    // Status label
+    let status_lbl = Label::builder()
+        .label("")
+        .css_classes(["cc-label-sub"])
+        .halign(Align::Start)
+        .build();
+
+    // Action buttons
+    let btn_box = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(10)
+        .halign(Align::End)
+        .build();
+
+    let cancel_btn = Button::builder()
+        .label("Annulla")
+        .css_classes(["cc-quick-btn"])
+        .build();
+    let pop_cancel = pop.clone();
+    cancel_btn.connect_clicked(move |_| {
+        pop_cancel.close();
+    });
+
+    let connect_btn = Button::builder()
+        .label("Connetti")
+        .css_classes(["cc-quick-btn"])
+        .build();
+
+    let ssid_str = ssid.to_string();
+    let pwd_clone = pwd_entry.clone();
+    let pop_conn = pop.clone();
+    let status_clone = status_lbl.clone();
+    let do_connect = move || {
+        let pwd = pwd_clone.text().to_string();
+        if pwd.is_empty() {
+            status_clone.set_label("⚠️ Inserisci prima la password.");
+            return;
+        }
+        status_clone.set_label("⏳ Connessione in corso...");
+        let _ = Command::new("nmcli")
+            .args(["device", "wifi", "connect", &ssid_str, "password", &pwd])
+            .spawn();
+        pop_conn.close();
+    };
+
+    let do_conn_1 = do_connect.clone();
+    connect_btn.connect_clicked(move |_| {
+        do_conn_1();
+    });
+
+    let do_conn_2 = do_connect.clone();
+    pwd_entry.connect_activate(move |_| {
+        do_conn_2();
+    });
+
+    btn_box.append(&cancel_btn);
+    btn_box.append(&connect_btn);
+
+    card.append(&header_card);
+    card.append(&pwd_entry);
+    card.append(&sec_note);
+    card.append(&status_lbl);
+    card.append(&btn_box);
+
+    pop.set_child(Some(&card));
+    pop.present();
+}
+
 fn show_wifi_popover(app: &Application) {
     let pop = ApplicationWindow::builder()
         .application(app)
@@ -696,10 +837,13 @@ fn show_wifi_popover(app: &Application) {
                     "󰤢"
                 };
 
-                let item_row = GtkBox::builder()
+                let item_row = Button::builder()
+                    .css_classes(["pro-applet-card-btn"])
+                    .build();
+
+                let inner_box = GtkBox::builder()
                     .orientation(Orientation::Horizontal)
                     .spacing(10)
-                    .css_classes(["pro-applet-card"])
                     .build();
 
                 let icon_lbl = Label::builder().label(icon).build();
@@ -710,20 +854,32 @@ fn show_wifi_popover(app: &Application) {
                     .halign(Align::Start)
                     .build();
                 let status_lbl = Label::builder()
-                    .label(if active { "Connesso — Sicuro" } else { "Disponibile" })
+                    .label(if active { "Connesso — Sicuro" } else { "Clicca per connetterti" })
                     .css_classes(["cc-label-sub"])
                     .halign(Align::Start)
                     .build();
                 texts.append(&ssid_lbl);
                 texts.append(&status_lbl);
 
-                item_row.append(&icon_lbl);
-                item_row.append(&texts);
+                inner_box.append(&icon_lbl);
+                inner_box.append(&texts);
 
                 if active {
                     let check_lbl = Label::builder().label("✓").css_classes(["cc-label-main"]).build();
-                    item_row.append(&check_lbl);
+                    inner_box.append(&check_lbl);
                 }
+
+                item_row.set_child(Some(&inner_box));
+
+                let app_clone = app.clone();
+                let pop_clone = pop.clone();
+                let ssid_str = ssid.to_string();
+                item_row.connect_clicked(move |_| {
+                    if !active {
+                        pop_clone.close();
+                        show_wifi_password_modal(&app_clone, &ssid_str);
+                    }
+                });
 
                 list_box.append(&item_row);
                 count += 1;
