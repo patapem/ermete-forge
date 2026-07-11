@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-desktop-ui
 Version:        1.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Ermete OS Desktop UI configurations
 License:        MIT
 URL:            https://github.com/patapem/ermete-forge
@@ -79,6 +79,9 @@ cp -p %{_sourcedir}/etc/udev/rules.d/99-ddcutil-i2c.rules %{buildroot}/etc/udev/
 /etc/udev/rules.d/99-ddcutil-i2c.rules
 
 %changelog
+* Sat Jul 11 2026 Ermete Forge <forge@ermete.os> - 1.0.0-2
+- Implement instant greeter termination on login success (killall -9 greeter session) and PAM CancelSession retry.
+
 * Tue Jul 07 2026 Ermete Forge <forge@ermete.os> - 1.0.0-1
 - Unified AGS and Niri configs into ermete-desktop-ui.
 - Integrated smembrated AGS app.ts into state, modals, notifications.

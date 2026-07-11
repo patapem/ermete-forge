@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-system-config
 Version:        1.0.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Ermete OS ermete-system-config
 License:        MIT
 URL:            https://github.com/patapem/ermete-forge
@@ -17,16 +17,8 @@ Provides ermete-system-config for Ermete OS.
 # Nothing to build
 
 %install
-mkdir -p %{buildroot}/usr/share/ermete-system-config
-mkdir -p %{buildroot}/usr/lib/systemd/system-preset
-mkdir -p %{buildroot}/usr/lib/tmpfiles.d
-cp -a %{_sourcedir}/usr/lib/systemd/system-preset/* %{buildroot}/usr/lib/systemd/system-preset/ || true
-cp -a %{_sourcedir}/usr/lib/tmpfiles.d/* %{buildroot}/usr/lib/tmpfiles.d/ || true
-cp -a %{_sourcedir}/usr/share/ermete-system-config/greetd.toml %{buildroot}/usr/share/ermete-system-config/greetd.toml || true
-cp -a %{_sourcedir}/usr/share/ermete-system-config/niri-greeter.kdl %{buildroot}/usr/share/ermete-system-config/niri-greeter.kdl || true
-cp -a %{_sourcedir}/usr/share/ermete-system-config/greeter-bundle.js %{buildroot}/usr/share/ermete-system-config/greeter-bundle.js 2>/dev/null || true
-
-%post
+mkdir -p %{buildroot}
+cp -a %{_sourcedir}/SOURCES/* %{buildroot}/
 
 %files
 %dir /usr/share/ermete-system-config
@@ -34,9 +26,12 @@ cp -a %{_sourcedir}/usr/share/ermete-system-config/greeter-bundle.js %{buildroot
 /usr/lib/tmpfiles.d/10-ermete-greetd.conf
 /usr/share/ermete-system-config/greetd.toml
 /usr/share/ermete-system-config/niri-greeter.kdl
-%ghost /usr/share/ermete-system-config/greeter-bundle.js
+/usr/share/ermete-system-config/greeter-bundle.js
 
 
 %changelog
+* Sat Jul 11 2026 Ermete Forge <forge@ermete.os> - 1.0.0-5
+- Package updated greeter-bundle.js and shadow tmpfiles overrides for instant greeter transitions.
+
 * Wed Jul 01 2026 Ermete Forge <forge@ermete.os> - 1.0.0-1
 - Initial Bedrock encapsulation
