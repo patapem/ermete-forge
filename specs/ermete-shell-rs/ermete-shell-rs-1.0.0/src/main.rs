@@ -656,7 +656,12 @@ fn show_wifi_popover(app: &Application) {
         .build();
     let header_icon = Label::builder().label("").css_classes(["cc-circle-blue"]).build();
     let header_lbl = Label::builder().label("Rete Wi-Fi").css_classes(["cc-label-main"]).hexpand(true).halign(Align::Start).build();
-    let wifi_sw = Switch::builder().active(true).valign(Align::Center).build();
+    let wifi_enabled = if let Ok(output) = Command::new("nmcli").args(["radio", "wifi"]).output() {
+        String::from_utf8_lossy(&output.stdout).trim() == "enabled"
+    } else {
+        true
+    };
+    let wifi_sw = Switch::builder().active(wifi_enabled).valign(Align::Center).build();
     wifi_sw.connect_state_set(move |_, state| {
         let cmd = if state { "on" } else { "off" };
         let _ = Command::new("nmcli").args(["radio", "wifi", cmd]).spawn();
@@ -785,7 +790,12 @@ fn show_bluetooth_popover(app: &Application) {
         .build();
     let header_icon = Label::builder().label("").css_classes(["cc-circle-blue"]).build();
     let header_lbl = Label::builder().label("Bluetooth").css_classes(["cc-label-main"]).hexpand(true).halign(Align::Start).build();
-    let bt_sw = Switch::builder().active(true).valign(Align::Center).build();
+    let bt_enabled = if let Ok(output) = Command::new("bluetoothctl").arg("show").output() {
+        String::from_utf8_lossy(&output.stdout).contains("Powered: yes")
+    } else {
+        true
+    };
+    let bt_sw = Switch::builder().active(bt_enabled).valign(Align::Center).build();
     bt_sw.connect_state_set(move |_, state| {
         let cmd = if state { "on" } else { "off" };
         let _ = Command::new("bluetoothctl").args(["power", cmd]).spawn();
@@ -1004,7 +1014,8 @@ fn show_control_center_popover(app: &Application) {
         .hexpand(true)
         .build();
 
-    let wifi_btn = build_cc_row("cc-circle-blue", "", "Rete Wi-Fi", "Reti Rilevate");
+    let (net_icon, net_title, net_sub) = get_network_status();
+    let wifi_btn = build_cc_row("cc-circle-blue", &net_icon, &net_title, &net_sub);
     let app_wifi = app.clone();
     let pop_wifi = pop.clone();
     wifi_btn.connect_clicked(move |_| {
@@ -1380,8 +1391,42 @@ fn build_left_island(app: &Application) -> GtkBox {
     box_left
 }
 
+fn get_network_status() -> (String, String, String) {
+    if let Ok(output) = Command::new("nmcli")
+        .args(["-t", "-f", "TYPE,STATE,NAME", "connection", "show", "--active"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() >= 3 {
+                let ctype = parts[0];
+                let state = parts[1];
+                let name = parts[2];
+                if state == "activated" {
+                    if ctype == "802-3-ethernet" || ctype == "ethernet" {
+                        return ("󰈀".to_string(), "Ethernet".to_string(), "Connesso via cavo".to_string());
+                    }
+                    if ctype == "802-11-wireless" || ctype == "wifi" {
+                        return ("".to_string(), "Rete Wi-Fi".to_string(), name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    if let Ok(output) = Command::new("nmcli").args(["radio", "wifi"]).output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.trim() == "disabled" {
+            return ("󰖪".to_string(), "Rete Wi-Fi".to_string(), "Disattivato".to_string());
+        }
+    }
+
+    ("󰖪".to_string(), "Rete Wi-Fi".to_string(), "Non connesso".to_string())
+}
+
 // Right Section: Authentic macOS Dongles/Status Items
-fn build_right_island(app: &Application, clock_label: &Label) -> GtkBox {
+fn build_right_island(app: &Application, clock_label: &Label) -> (GtkBox, Button) {
     let box_right = GtkBox::builder()
         .orientation(Orientation::Horizontal)
         .spacing(2)
@@ -1394,13 +1439,15 @@ fn build_right_island(app: &Application, clock_label: &Label) -> GtkBox {
         .css_classes(["macos-status-item"])
         .build();
 
-    // 2. Wi-Fi Dongle (macOS style)
-    let wifi_item = Button::builder()
-        .label("")
+    // 2. Dynamic Network Dongle (macOS style: Ethernet/Wi-Fi/Off)
+    let (init_icon, _, _) = get_network_status();
+    let net_item = Button::builder()
+        .label(&init_icon)
         .css_classes(["macos-status-item"])
         .build();
-    wifi_item.connect_clicked(move |_| {
-        let _ = Command::new("nm-connection-editor").spawn();
+    let app_net = app.clone();
+    net_item.connect_clicked(move |_| {
+        show_wifi_popover(&app_net);
     });
 
     // 3. Spotlight Dongle (macOS style)
@@ -1434,11 +1481,11 @@ fn build_right_island(app: &Application, clock_label: &Label) -> GtkBox {
     });
 
     box_right.append(&batt_item);
-    box_right.append(&wifi_item);
+    box_right.append(&net_item);
     box_right.append(&spot_item);
     box_right.append(&cc_item);
     box_right.append(&clock_item);
-    box_right
+    (box_right, net_item)
 }
 
 fn build_ui(app: &Application) {
@@ -1473,7 +1520,8 @@ fn build_ui(app: &Application) {
     let center_box = CenterBox::new();
     center_box.set_start_widget(Some(&build_left_island(app)));
     // Center is empty exactly like macOS Menu Bar
-    center_box.set_end_widget(Some(&build_right_island(app, &clock_label)));
+    let (right_island, net_btn) = build_right_island(app, &clock_label);
+    center_box.set_end_widget(Some(&right_island));
     center_box.set_hexpand(true);
 
     container.append(&center_box);
@@ -1481,8 +1529,10 @@ fn build_ui(app: &Application) {
 
     glib::timeout_add_seconds_local(
         5,
-        clone!(@weak clock_label => @default-return glib::ControlFlow::Break, move || {
+        clone!(@weak clock_label, @weak net_btn => @default-return glib::ControlFlow::Break, move || {
             clock_label.set_label(&macos_clock_string());
+            let (net_icon, _, _) = get_network_status();
+            net_btn.set_label(&net_icon);
             glib::ControlFlow::Continue
         }),
     );
