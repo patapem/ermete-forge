@@ -8,7 +8,50 @@ use gtk4::{
     Entry, Image, Label, Orientation, PasswordEntry, ProgressBar, Scale, ScrolledWindow, Switch,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
+use serde::Deserialize;
+use std::io::BufRead;
 use std::process::Command;
+
+#[derive(Deserialize, Debug, Clone)]
+struct NiriWorkspace {
+    id: u64,
+    idx: u64,
+    name: Option<String>,
+    output: String,
+    is_active: bool,
+    is_focused: bool,
+}
+
+fn spawn_niri_workspace_watcher(sender: glib::Sender<Vec<NiriWorkspace>>) {
+    std::thread::spawn(move || {
+        if let Ok(output) = Command::new("niri").args(["msg", "-j", "workspaces"]).output() {
+            if let Ok(workspaces) = serde_json::from_slice::<Vec<NiriWorkspace>>(&output.stdout) {
+                let _ = sender.send(workspaces);
+            }
+        }
+
+        let mut child = Command::new("niri")
+            .args(["msg", "-j", "event-stream"])
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn niri event stream");
+
+        if let Some(stdout) = child.stdout.take() {
+            let reader = std::io::BufReader::new(stdout);
+            for line in reader.lines() {
+                if let Ok(line_str) = line {
+                    if line_str.contains("Workspace") {
+                        if let Ok(output) = Command::new("niri").args(["msg", "-j", "workspaces"]).output() {
+                            if let Ok(workspaces) = serde_json::from_slice::<Vec<NiriWorkspace>>(&output.stdout) {
+                                let _ = sender.send(workspaces);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
 
 const APP_ID: &str = "os.ermete.Shell";
 
@@ -1985,7 +2028,7 @@ fn show_calendar_popover(app: &Application) {
 fn build_left_island(app: &Application) -> GtkBox {
     let box_left = GtkBox::builder()
         .orientation(Orientation::Horizontal)
-        .spacing(1)
+        .spacing(6)
         .valign(Align::Center)
         .build();
 
@@ -1997,35 +2040,59 @@ fn build_left_island(app: &Application) -> GtkBox {
     apple_logo.connect_clicked(move |_| {
         show_start_menu_popover(&app_clone);
     });
+    box_left.append(&apple_logo);
+
+    let workspace_box = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(4)
+        .valign(Align::Center)
+        .build();
+    workspace_box.set_margin_start(10);
+    workspace_box.set_margin_end(10);
+    box_left.append(&workspace_box);
+
+    let (sender, receiver) = glib::MainContext::channel(glib::Priority::DEFAULT);
+    spawn_niri_workspace_watcher(sender);
+
+    receiver.attach(None, move |workspaces| {
+        while let Some(child) = workspace_box.first_child() {
+            workspace_box.remove(&child);
+        }
+
+        let mut sorted_ws = workspaces.clone();
+        sorted_ws.sort_by_key(|w| w.idx);
+
+        for ws in sorted_ws {
+            let label = if ws.is_active { "●" } else { "○" };
+            let ws_btn = Button::builder()
+                .label(label)
+                .css_classes(["macos-menu-item"])
+                .build();
+            
+            if ws.is_focused {
+                ws_btn.add_css_class("workspace-focused");
+            } else if ws.is_active {
+                ws_btn.add_css_class("workspace-active");
+            }
+
+            let ws_id = ws.id;
+            ws_btn.connect_clicked(move |_| {
+                let _ = Command::new("niri")
+                    .args(["msg", "action", "focus-workspace", &ws_id.to_string()])
+                    .spawn();
+            });
+
+            workspace_box.append(&ws_btn);
+        }
+        glib::ControlFlow::Continue
+    });
 
     let app_title = Button::builder()
         .label("Ermete OS")
         .css_classes(["macos-menu-item", "macos-app-title"])
         .build();
-
-    let file_item = Button::builder()
-        .label("File")
-        .css_classes(["macos-menu-item"])
-        .build();
-    let edit_item = Button::builder()
-        .label("Modifica")
-        .css_classes(["macos-menu-item"])
-        .build();
-    let view_item = Button::builder()
-        .label("Vista")
-        .css_classes(["macos-menu-item"])
-        .build();
-    let win_item = Button::builder()
-        .label("Finestra")
-        .css_classes(["macos-menu-item"])
-        .build();
-
-    box_left.append(&apple_logo);
     box_left.append(&app_title);
-    box_left.append(&file_item);
-    box_left.append(&edit_item);
-    box_left.append(&view_item);
-    box_left.append(&win_item);
+
     box_left
 }
 
