@@ -3,7 +3,7 @@ use gtk4::prelude::*;
 use gtk4::Application;
 
 // Dummy modules for now
-mod topbar;
+mod ui;
 mod greeter;
 mod core;
 
@@ -25,7 +25,7 @@ fn main() -> glib::ExitCode {
     
     app.connect_activate(move |app| {
         if args.topbar {
-            topbar::build_ui(app);
+            ui::topbar::build_ui(app);
         } else if args.greeter {
             greeter::build_ui(app);
         } else {
