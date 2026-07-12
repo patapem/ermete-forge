@@ -35,7 +35,7 @@ window.bg-overlay-window {
     background: transparent;
     border: none;
     border-radius: 5px;
-    padding: 2px 9px;
+    padding: 4px 12px;
     color: @shell_fg;
     font-size: 13px;
     font-weight: 500;
@@ -48,24 +48,22 @@ window.bg-overlay-window {
 }
 
 .macos-apple-logo {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
-    padding: 2px 8px;
 }
 
 .macos-app-title {
     font-weight: 700;
     color: @shell_primary;
-    padding: 2px 10px;
 }
 
 .macos-status-item {
     background: transparent;
     border: none;
     border-radius: 5px;
-    padding: 2px 8px;
+    padding: 4px 12px;
     color: @shell_fg;
-    font-size: 13px;
+    font-size: 14px;
     transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -75,8 +73,7 @@ window.bg-overlay-window {
 }
 
 .macos-clock {
-    font-weight: 500;
-    padding: 2px 9px;
+    font-weight: 700;
 }
 
 /* ==========================================
