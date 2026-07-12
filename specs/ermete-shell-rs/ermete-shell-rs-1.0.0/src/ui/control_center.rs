@@ -1,6 +1,7 @@
 use crate::core::*;
 use crate::ui::spotlight::*;
 use crate::ui::topbar::setup_popup_autoclose;
+use glib::clone;
 
 use gtk4::prelude::*;
 use gtk4::{
@@ -988,6 +989,10 @@ pub fn show_control_center_popover(app: &Application) {
 
     let (net_icon, net_title, net_sub) = get_network_status();
     let wifi_btn = build_cc_row("cc-circle-blue", &net_icon, &net_title, &net_sub);
+    let net_connected = net_sub != "Disattivato" && net_sub != "Non connesso" && net_sub != "Off" && net_sub != "Disconnected";
+    if net_connected {
+        wifi_btn.add_css_class("cc-btn-active");
+    }
     let app_wifi = app.clone();
     let pop_wifi = pop.clone();
     wifi_btn.connect_clicked(move |_| {
@@ -995,6 +1000,14 @@ pub fn show_control_center_popover(app: &Application) {
         show_wifi_popover(&app_wifi);
     });
     let bt_btn = build_cc_row("cc-circle-blue", "", "Bluetooth", "Dispositivi");
+    let bt_enabled = if let Ok(output) = Command::new("bluetoothctl").arg("show").output() {
+        String::from_utf8_lossy(&output.stdout).contains("Powered: yes")
+    } else {
+        false
+    };
+    if bt_enabled {
+        bt_btn.add_css_class("cc-btn-active");
+    }
     let app_bt = app.clone();
     let pop_bt = pop.clone();
     bt_btn.connect_clicked(move |_| {
@@ -1088,7 +1101,32 @@ pub fn show_control_center_popover(app: &Application) {
     audio_card.append(&audio_icon);
     audio_card.append(&audio_slider);
 
-    // 3. BOTTOM SECTION (4 Quick Toggles Grid)
+    // 3. MEDIA CONTROL (MPRIS)
+    let mpris_card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(6)
+        .css_classes(["cc-tile"])
+        .build();
+    let mpris_title = Label::builder().label("Nessun media in riproduzione").css_classes(["cc-label-main"]).halign(Align::Start).hexpand(true).ellipsize(gtk4::pango::EllipsizeMode::End).build();
+    let mpris_artist = Label::builder().label("-").css_classes(["cc-label-sub"]).halign(Align::Start).hexpand(true).ellipsize(gtk4::pango::EllipsizeMode::End).build();
+    let mpris_ctrl_box = GtkBox::builder().orientation(Orientation::Horizontal).spacing(12).halign(Align::Center).build();
+    let prev_btn = Button::builder().label("⏮").css_classes(["cc-quick-btn"]).build();
+    let play_btn = Button::builder().label("▶").css_classes(["cc-quick-btn"]).build();
+    let next_btn = Button::builder().label("⏭").css_classes(["cc-quick-btn"]).build();
+    
+    prev_btn.connect_clicked(|_| { let _ = Command::new("playerctl").arg("previous").spawn(); });
+    play_btn.connect_clicked(|_| { let _ = Command::new("playerctl").arg("play-pause").spawn(); });
+    next_btn.connect_clicked(|_| { let _ = Command::new("playerctl").arg("next").spawn(); });
+
+    mpris_ctrl_box.append(&prev_btn);
+    mpris_ctrl_box.append(&play_btn);
+    mpris_ctrl_box.append(&next_btn);
+    
+    mpris_card.append(&mpris_title);
+    mpris_card.append(&mpris_artist);
+    mpris_card.append(&mpris_ctrl_box);
+
+    // 4. BOTTOM SECTION (4 Quick Toggles Grid)
     let bottom_grid = GtkBox::builder()
         .orientation(Orientation::Horizontal)
         .spacing(8)
@@ -1155,7 +1193,64 @@ pub fn show_control_center_popover(app: &Application) {
     card.append(&top_grid);
     card.append(&bright_card);
     card.append(&audio_card);
+    card.append(&mpris_card);
     card.append(&bottom_grid);
+
+    // LIVE STATE POLLING
+    let bright_slider_clone = bright_slider.clone();
+    let audio_slider_clone = audio_slider.clone();
+    let mpris_t = mpris_title.clone();
+    let mpris_a = mpris_artist.clone();
+    let mpris_p = play_btn.clone();
+    let wifi_btn_clone = wifi_btn.clone();
+    let bt_btn_clone = bt_btn.clone();
+    
+    glib::timeout_add_local(std::time::Duration::from_millis(1000), clone!(@weak pop => @default-return glib::ControlFlow::Break, move || {
+        let live = crate::core::live_state::get_live_state();
+        
+        // Update sliders only if the difference is > 1.0 (to avoid fighting user input)
+        if (bright_slider_clone.value() - live.brightness).abs() > 1.5 {
+            bright_slider_clone.set_value(live.brightness);
+        }
+        if (audio_slider_clone.value() - (live.volume * 100.0)).abs() > 1.5 {
+            audio_slider_clone.set_value(live.volume * 100.0);
+        }
+
+        if let Some(mpris) = crate::core::mpris::get_mpris_state() {
+            mpris_t.set_label(&mpris.title);
+            mpris_a.set_label(&mpris.artist);
+            if mpris.status.contains("Playing") {
+                mpris_p.set_label("⏸");
+            } else {
+                mpris_p.set_label("▶");
+            }
+        } else {
+            mpris_t.set_label("Nessun media in riproduzione");
+            mpris_a.set_label("-");
+            mpris_p.set_label("▶");
+        }
+
+        let (_, _, net_sub) = get_network_status();
+        let net_connected = net_sub != "Disattivato" && net_sub != "Non connesso" && net_sub != "Off" && net_sub != "Disconnected";
+        if net_connected {
+            wifi_btn_clone.add_css_class("cc-btn-active");
+        } else {
+            wifi_btn_clone.remove_css_class("cc-btn-active");
+        }
+
+        let bt_enabled = if let Ok(output) = Command::new("bluetoothctl").arg("show").output() {
+            String::from_utf8_lossy(&output.stdout).contains("Powered: yes")
+        } else {
+            false
+        };
+        if bt_enabled {
+            bt_btn_clone.add_css_class("cc-btn-active");
+        } else {
+            bt_btn_clone.remove_css_class("cc-btn-active");
+        }
+
+        glib::ControlFlow::Continue
+    }));
 
     let key_ctrl = gtk4::EventControllerKey::new();
     let pop_esc = pop.clone();

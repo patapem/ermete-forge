@@ -77,6 +77,31 @@ window.bg-overlay-window {
 }
 
 /* ==========================================
+   ANIMATIONS & KEYFRAMES
+   ========================================== */
+@keyframes slide-down-fade {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.98);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1.0);
+    }
+}
+
+@keyframes pop-in-fade {
+    0% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1.0);
+    }
+}
+
+/* ==========================================
    macOS SPOTLIGHT MODAL (Win+D)
    ========================================== */
 window.spotlight-window {
@@ -88,6 +113,7 @@ window.spotlight-window {
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    animation: pop-in-fade 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .spotlight-input {
@@ -149,6 +175,7 @@ window.popup-window {
     padding: 14px;
     color: #f8fafc;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    animation: slide-down-fade 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .cc-tile {
@@ -161,6 +188,11 @@ window.popup-window {
 
 .cc-tile:hover {
     background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.02);
+}
+
+.cc-tile:active {
+    transform: scale(0.96);
 }
 
 .cc-tile-row {
@@ -174,6 +206,12 @@ window.popup-window {
 
 .cc-tile-row:hover {
     background: rgba(255, 255, 255, 0.08);
+    transform: translateX(4px);
+}
+
+.cc-tile-row:active {
+    background: rgba(255, 255, 255, 0.04);
+    transform: translateX(0px);
 }
 
 .cc-circle-blue {
@@ -226,6 +264,18 @@ window.popup-window {
     transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
+.cc-tile-slider:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.cc-btn-active {
+    background: rgba(10, 132, 255, 0.8) !important;
+    border-color: rgba(10, 132, 255, 1.0) !important;
+}
+.cc-btn-active .cc-label-main {
+    color: #ffffff !important;
+}
+
 .cc-slider-icon {
     font-size: 15px;
     color: #f5f5f7;
@@ -245,6 +295,11 @@ window.popup-window {
 .cc-quick-btn:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #ffffff;
+    transform: translateY(-2px);
+}
+
+.cc-quick-btn:active {
+    transform: translateY(1px);
 }
 
 .cc-btn {
@@ -531,7 +586,7 @@ pub fn setup_popup_autoclose(pop: &ApplicationWindow, tag: &str) {
     pop.add_controller(key_ctrl);
 }
 
-fn build_left_island(app: &Application) -> GtkBox {
+fn build_left_island(app: &Application) -> (GtkBox, Button) {
     let box_left = GtkBox::builder()
         .orientation(Orientation::Horizontal)
         .spacing(2)
@@ -554,7 +609,7 @@ fn build_left_island(app: &Application) -> GtkBox {
         .build();
     box_left.append(&app_title);
 
-    box_left
+    (box_left, app_title)
 }
 
 fn build_center_island(_app: &Application) -> GtkBox {
@@ -621,7 +676,7 @@ fn build_center_island(_app: &Application) -> GtkBox {
     workspace_box
 }
 
-fn build_right_island(app: &Application, clock_label: &Label) -> (GtkBox, Button) {
+fn build_right_island(app: &Application, clock_label: &Label) -> (GtkBox, Button, Button) {
     let box_right = GtkBox::builder()
         .orientation(Orientation::Horizontal)
         .spacing(2)
@@ -680,7 +735,7 @@ fn build_right_island(app: &Application, clock_label: &Label) -> (GtkBox, Button
     box_right.append(&spot_item);
     box_right.append(&cc_item);
     box_right.append(&clock_item);
-    (box_right, net_item)
+    (box_right, net_item, batt_item)
 }
 
 pub fn build_ui(app: &Application) {
@@ -715,9 +770,10 @@ pub fn build_ui(app: &Application) {
     let clock_label = Label::new(Some(&macos_clock_string()));
 
     let center_box = CenterBox::new();
-    center_box.set_start_widget(Some(&build_left_island(app)));
+    let (left_island, app_title) = build_left_island(app);
+    center_box.set_start_widget(Some(&left_island));
     center_box.set_center_widget(Some(&build_center_island(app)));
-    let (right_island, net_btn) = build_right_island(app, &clock_label);
+    let (right_island, net_btn, batt_btn) = build_right_island(app, &clock_label);
     center_box.set_end_widget(Some(&right_island));
     center_box.set_hexpand(true);
 
@@ -726,10 +782,40 @@ pub fn build_ui(app: &Application) {
 
     glib::timeout_add_seconds_local(
         5,
-        clone!(@weak clock_label, @weak net_btn => @default-return glib::ControlFlow::Break, move || {
+        clone!(@weak clock_label, @weak net_btn, @weak batt_btn => @default-return glib::ControlFlow::Break, move || {
             clock_label.set_label(&macos_clock_string());
             let (net_icon, _, _) = get_network_status();
             net_btn.set_label(&net_icon);
+            
+            let live = crate::core::live_state::get_live_state();
+            if live.has_battery {
+                batt_btn.set_visible(true);
+                let batt_icon = if live.battery_percent < 20.0 {
+                    "󰁺"
+                } else if live.battery_percent < 50.0 {
+                    "󰁼"
+                } else {
+                    "󰁹"
+                };
+                batt_btn.set_label(&format!("{}% {}", live.battery_percent.round() as i32, batt_icon));
+            } else {
+                batt_btn.set_visible(false);
+            }
+            
+            glib::ControlFlow::Continue
+        }),
+    );
+
+    // Fast Polling for Niri Window Focus (Every 100ms for snappiness)
+    glib::timeout_add_local(
+        std::time::Duration::from_millis(200),
+        clone!(@weak app_title => @default-return glib::ControlFlow::Break, move || {
+            let niri = crate::core::niri_state::get_niri_state();
+            if let Some(title) = niri.focused_window_title {
+                app_title.set_label(&title);
+            } else {
+                app_title.set_label("Ermete OS");
+            }
             glib::ControlFlow::Continue
         }),
     );

@@ -59,6 +59,54 @@ pub fn populate_launcher_list(list_box: &GtkBox, filter_text: &str, category_fil
         return;
     }
 
+    if is_spotlight && filter_lower.starts_with('/') {
+        let query = filter_text.trim_start_matches('/').trim();
+        if !query.is_empty() {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+            if let Ok(output) = std::process::Command::new("find")
+                .arg(&home)
+                .arg("-maxdepth")
+                .arg("4")
+                .arg("-iname")
+                .arg(&format!("*{}*", query))
+                .output()
+            {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let mut count = 0;
+                for line in stdout.lines() {
+                    if line.trim().is_empty() { continue; }
+                    if count >= 5 { break; }
+                    let row = Button::builder().css_classes(["spotlight-item"]).build();
+                    let hbox = GtkBox::builder().orientation(Orientation::Horizontal).spacing(16).build();
+                    let img = Image::builder().icon_name("text-x-generic").pixel_size(40).build();
+                    hbox.append(&img);
+                    let vbox = GtkBox::builder().orientation(Orientation::Vertical).valign(Align::Center).build();
+                    let path = std::path::Path::new(line);
+                    let name = path.file_name().unwrap_or_default().to_string_lossy();
+                    let name_lbl = Label::builder().label(&name.to_string()).halign(Align::Start).css_classes(["spotlight-item-title"]).build();
+                    vbox.append(&name_lbl);
+                    let desc_lbl = Label::builder().label(line).halign(Align::Start).css_classes(["spotlight-item-desc"]).ellipsize(gtk4::pango::EllipsizeMode::Middle).build();
+                    vbox.append(&desc_lbl);
+                    hbox.append(&vbox);
+                    row.set_child(Some(&hbox));
+                    let pop_clone = pop.clone();
+                    let file_path = line.to_string();
+                    row.connect_clicked(move |_| {
+                        let _ = std::process::Command::new("xdg-open").arg(&file_path).spawn();
+                        pop_clone.close();
+                    });
+                    list_box.append(&row);
+                    count += 1;
+                }
+                if count == 0 {
+                    let no_res = Label::builder().label("Nessun file trovato.").css_classes(["cc-label-sub"]).margin_top(20).build();
+                    list_box.append(&no_res);
+                }
+            }
+        }
+        return;
+    }
+
     let mut apps: Vec<AppInfo> = AppInfo::all().into_iter().filter(|a| a.should_show()).collect();
     apps.sort_by(|a, b| a.display_name().to_lowercase().cmp(&b.display_name().to_lowercase()));
     let mut count = 0;

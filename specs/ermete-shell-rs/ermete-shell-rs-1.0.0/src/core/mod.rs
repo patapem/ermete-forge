@@ -1,4 +1,7 @@
 pub mod network;
+pub mod mpris;
+pub mod niri_state;
+pub mod live_state;
 use gtk4::CssProvider;
 use chrono::Local;
 use std::io::BufRead;

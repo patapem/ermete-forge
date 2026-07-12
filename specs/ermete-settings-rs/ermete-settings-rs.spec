@@ -1,0 +1,28 @@
+Name:           ermete-settings-rs
+Version:        1.0.0
+Release:        1%{?dist}
+Summary:        Pure Rust native System Settings for Ermete OS
+
+License:        GPLv3+
+URL:            https://github.com/patapem/ermete-forge
+Source0:        %{name}-%{version}.tar.gz
+
+BuildRequires:  rust cargo
+BuildRequires:  gtk4-devel
+
+%description
+Ermete Settings is the native control panel for Ermete OS, written in pure Rust with GTK4.
+
+%prep
+%autosetup
+
+%build
+cargo build --release --offline
+
+%install
+rm -rf $RPM_BUILD_ROOT
+install -d $RPM_BUILD_ROOT/%{_bindir}
+install -m 0755 target/release/%{name} $RPM_BUILD_ROOT/%{_bindir}/%{name}
+
+%files
+%{_bindir}/%{name}
