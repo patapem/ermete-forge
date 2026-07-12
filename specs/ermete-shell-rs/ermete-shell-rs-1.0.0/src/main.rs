@@ -11,6 +11,7 @@ use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use serde::Deserialize;
 use std::io::BufRead;
 use std::process::Command;
+use zbus::interface;
 
 #[derive(Deserialize, Debug, Clone)]
 struct NiriWorkspace {
@@ -50,6 +51,135 @@ fn spawn_niri_workspace_watcher(sender: glib::Sender<Vec<NiriWorkspace>>) {
                 }
             }
         }
+    });
+}
+
+#[derive(Clone, Debug)]
+struct NotificationData {
+    id: u32,
+    app_name: String,
+    summary: String,
+    body: String,
+}
+
+thread_local! {
+    static NOTIFICATIONS: std::cell::RefCell<Vec<NotificationData>> = std::cell::RefCell::new(Vec::new());
+}
+
+struct NotificationServer {
+    sender: glib::Sender<NotificationData>,
+    counter: std::sync::atomic::AtomicU32,
+}
+
+#[interface(name = "org.freedesktop.Notifications")]
+impl NotificationServer {
+    async fn notify(
+        &self,
+        app_name: &str,
+        replaces_id: u32,
+        _app_icon: &str,
+        summary: &str,
+        body: &str,
+        _actions: Vec<&str>,
+        _hints: std::collections::HashMap<&str, zbus::zvariant::Value<'_>>,
+        _expire_timeout: i32,
+    ) -> u32 {
+        let id = if replaces_id == 0 {
+            self.counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        } else {
+            replaces_id
+        };
+
+        let notif = NotificationData {
+            id,
+            app_name: app_name.to_string(),
+            summary: summary.to_string(),
+            body: body.to_string(),
+        };
+
+        let _ = self.sender.send(notif);
+        id
+    }
+
+    async fn get_capabilities(&self) -> Vec<&str> {
+        vec!["body"]
+    }
+
+    async fn get_server_information(&self) -> (&str, &str, &str, &str) {
+        ("Ermete Notifications", "Ermete OS", "1.0", "1.2")
+    }
+
+    async fn close_notification(&self, _id: u32) {}
+}
+
+fn show_toast_popup(app: &Application, notif: &NotificationData) {
+    let toast = ApplicationWindow::builder()
+        .application(app)
+        .css_classes(["popup-window"])
+        .build();
+
+    toast.init_layer_shell();
+    toast.set_layer(Layer::Overlay);
+    toast.set_anchor(Edge::Top, true);
+    toast.set_anchor(Edge::Right, true);
+    toast.set_margin(Edge::Top, 40);
+    toast.set_margin(Edge::Right, 10);
+
+    let vbox = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(4)
+        .css_classes(["cc-card"])
+        .build();
+    
+    let title = Label::builder().label(&notif.summary).css_classes(["cc-title"]).halign(Align::Start).build();
+    let body = Label::builder().label(&notif.body).css_classes(["cc-label-sub"]).halign(Align::Start).wrap(true).max_width_chars(30).build();
+    
+    vbox.append(&title);
+    vbox.append(&body);
+    toast.set_child(Some(&vbox));
+    toast.present();
+
+    glib::timeout_add_seconds_local(5, clone!(@weak toast => @default-return glib::ControlFlow::Break, move || {
+        toast.close();
+        glib::ControlFlow::Break
+    }));
+}
+
+fn spawn_notification_daemon(app: &Application) {
+    let (sender, receiver) = glib::MainContext::channel::<NotificationData>(glib::Priority::DEFAULT);
+    
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let server = NotificationServer {
+                sender,
+                counter: std::sync::atomic::AtomicU32::new(1),
+            };
+            let _conn = zbus::connection::Builder::session()
+                .unwrap()
+                .name("org.freedesktop.Notifications")
+                .unwrap()
+                .serve_at("/org/freedesktop/Notifications", server)
+                .unwrap()
+                .build()
+                .await
+                .unwrap();
+            std::future::pending::<()>().await;
+        });
+    });
+
+    let app_clone = app.clone();
+    receiver.attach(None, move |notif| {
+        NOTIFICATIONS.with(|n| {
+            let mut list = n.borrow_mut();
+            if let Some(pos) = list.iter().position(|x| x.id == notif.id) {
+                list[pos] = notif.clone();
+            } else {
+                list.insert(0, notif.clone());
+            }
+        });
+        show_toast_popup(&app_clone, &notif);
+        glib::ControlFlow::Continue
     });
 }
 
@@ -1987,7 +2117,6 @@ fn show_start_menu_popover(app: &Application) {
     search.grab_focus();
 }
 
-// macOS Calendar Popover
 fn show_calendar_popover(app: &Application) {
     let pop = ApplicationWindow::builder()
         .application(app)
@@ -2003,24 +2132,72 @@ fn show_calendar_popover(app: &Application) {
     pop.set_margin(Edge::Top, 32);
     pop.set_margin(Edge::Right, 10);
 
-    let card = GtkBox::builder()
+    let main_vbox = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(10)
+        .build();
+
+    let notifs_card = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(8)
+        .css_classes(["cc-card"])
+        .build();
+    
+    let title_hbox = GtkBox::builder().orientation(Orientation::Horizontal).build();
+    let notifs_title = Label::builder().label("Notifiche").css_classes(["cc-title"]).halign(Align::Start).hexpand(true).build();
+    let clear_btn = Button::builder().label("Cancella").css_classes(["cc-btn"]).build();
+    
+    let scroll = ScrolledWindow::builder()
+        .hscrollbar_policy(gtk4::PolicyType::Never)
+        .vscrollbar_policy(gtk4::PolicyType::Automatic)
+        .max_content_height(300)
+        .propagate_natural_height(true)
+        .build();
+    
+    let list_box = GtkBox::builder().orientation(Orientation::Vertical).spacing(8).build();
+    
+    let pop_clone_clear = pop.clone();
+    clear_btn.connect_clicked(move |_| {
+        NOTIFICATIONS.with(|n| n.borrow_mut().clear());
+        pop_clone_clear.close();
+    });
+    
+    title_hbox.append(&notifs_title);
+    title_hbox.append(&clear_btn);
+    notifs_card.append(&title_hbox);
+    
+    NOTIFICATIONS.with(|n| {
+        let history = n.borrow();
+        if history.is_empty() {
+            list_box.append(&Label::builder().label("Nessuna nuova notifica").css_classes(["cc-label-sub"]).margin_top(10).margin_bottom(10).build());
+        } else {
+            for notif in history.iter() {
+                let row = GtkBox::builder().orientation(Orientation::Vertical).spacing(2).build();
+                let sum = Label::builder().label(&notif.summary).halign(Align::Start).css_classes(["cc-label-main"]).build();
+                let bod = Label::builder().label(&notif.body).halign(Align::Start).css_classes(["cc-label-sub"]).wrap(true).max_width_chars(30).build();
+                row.append(&sum);
+                row.append(&bod);
+                list_box.append(&row);
+            }
+        }
+    });
+
+    scroll.set_child(Some(&list_box));
+    notifs_card.append(&scroll);
+
+    let cal_card = GtkBox::builder()
         .orientation(Orientation::Vertical)
         .spacing(10)
         .css_classes(["cc-card"])
         .build();
 
     let cal = Calendar::builder().build();
-    let close_btn = Button::builder()
-        .label("Chiudi")
-        .css_classes(["cc-btn"])
-        .build();
-    close_btn.connect_clicked(clone!(@weak pop => move |_| {
-        pop.close();
-    }));
+    cal_card.append(&cal);
 
-    card.append(&cal);
-    card.append(&close_btn);
-    pop.set_child(Some(&card));
+    main_vbox.append(&notifs_card);
+    main_vbox.append(&cal_card);
+
+    pop.set_child(Some(&main_vbox));
     pop.present();
 }
 
@@ -2214,6 +2391,7 @@ fn build_right_island(app: &Application, clock_label: &Label) -> (GtkBox, Button
 
 fn build_ui(app: &Application) {
     load_css();
+    spawn_notification_daemon(app);
 
     let window = ApplicationWindow::builder()
         .application(app)
