@@ -91,33 +91,48 @@ window.spotlight-window {
 }
 
 .spotlight-input {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
     color: #ffffff;
-    font-size: 18px;
-    padding: 10px 14px;
-    transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    font-size: 32px;
+    font-weight: 300;
+    padding: 16px 20px;
 }
 
 .spotlight-input:focus {
-    border-color: rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    outline: none;
 }
 
 .spotlight-item {
     background: transparent;
     border: none;
-    border-radius: 6px;
-    padding: 8px 12px;
+    border-radius: 8px;
+    padding: 12px 16px;
     color: #f5f5f7;
-    font-size: 14px;
-    transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transition: all 0.15s ease-in-out;
 }
 
 .spotlight-item:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #ffffff;
+}
+
+.spotlight-item-title {
+    font-family: 'Inter', 'SF Pro Text', 'Roboto', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: #ffffff;
+}
+
+.spotlight-item-desc {
+    font-family: 'Inter', 'SF Pro Text', 'Roboto', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.5);
 }
 
 /* ==========================================

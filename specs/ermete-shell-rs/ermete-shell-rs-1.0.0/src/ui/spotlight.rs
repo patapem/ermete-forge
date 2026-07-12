@@ -15,13 +15,13 @@ pub fn populate_launcher_list(list_box: &GtkBox, filter_text: &str, category_fil
         if let Ok(res) = meval::eval_str(expr) {
             let res_str = res.to_string();
             let row = Button::builder().css_classes(["spotlight-item"]).build();
-            let hbox = GtkBox::builder().orientation(Orientation::Horizontal).spacing(12).build();
-            let img = Image::builder().icon_name("accessories-calculator").pixel_size(32).build();
+            let hbox = GtkBox::builder().orientation(Orientation::Horizontal).spacing(16).build();
+            let img = Image::builder().icon_name("accessories-calculator").pixel_size(40).build();
             hbox.append(&img);
             let vbox = GtkBox::builder().orientation(Orientation::Vertical).valign(Align::Center).build();
-            let name_lbl = Label::builder().label(&format!("= {}", res_str)).halign(Align::Start).css_classes(["cc-label-main"]).build();
+            let name_lbl = Label::builder().label(&format!("= {}", res_str)).halign(Align::Start).css_classes(["spotlight-item-title"]).build();
             vbox.append(&name_lbl);
-            let desc_lbl = Label::builder().label("Risultato calcolatrice (clicca per copiare e chiudere)").halign(Align::Start).css_classes(["cc-label-sub"]).build();
+            let desc_lbl = Label::builder().label("Risultato calcolatrice (clicca per copiare e chiudere)").halign(Align::Start).css_classes(["spotlight-item-desc"]).build();
             vbox.append(&desc_lbl);
             hbox.append(&vbox);
             row.set_child(Some(&hbox));
@@ -39,13 +39,13 @@ pub fn populate_launcher_list(list_box: &GtkBox, filter_text: &str, category_fil
     if is_spotlight && filter_lower.starts_with('>') {
         let cmd = filter_text.trim_start_matches('>').trim();
         let row = Button::builder().css_classes(["spotlight-item"]).build();
-        let hbox = GtkBox::builder().orientation(Orientation::Horizontal).spacing(12).build();
-        let img = Image::builder().icon_name("utilities-terminal").pixel_size(32).build();
+        let hbox = GtkBox::builder().orientation(Orientation::Horizontal).spacing(16).build();
+        let img = Image::builder().icon_name("utilities-terminal").pixel_size(40).build();
         hbox.append(&img);
         let vbox = GtkBox::builder().orientation(Orientation::Vertical).valign(Align::Center).build();
-        let name_lbl = Label::builder().label(&format!("Esegui: {}", cmd)).halign(Align::Start).css_classes(["cc-label-main"]).build();
+        let name_lbl = Label::builder().label(&format!("Esegui: {}", cmd)).halign(Align::Start).css_classes(["spotlight-item-title"]).build();
         vbox.append(&name_lbl);
-        let desc_lbl = Label::builder().label("Lancia comando nel terminale").halign(Align::Start).css_classes(["cc-label-sub"]).build();
+        let desc_lbl = Label::builder().label("Lancia comando nel terminale").halign(Align::Start).css_classes(["spotlight-item-desc"]).build();
         vbox.append(&desc_lbl);
         hbox.append(&vbox);
         row.set_child(Some(&hbox));
@@ -88,17 +88,17 @@ pub fn populate_launcher_list(list_box: &GtkBox, filter_text: &str, category_fil
             continue;
         }
         let row = Button::builder().css_classes(["spotlight-item"]).build();
-        let hbox = GtkBox::builder().orientation(Orientation::Horizontal).spacing(12).build();
+        let hbox = GtkBox::builder().orientation(Orientation::Horizontal).spacing(16).build();
         if let Some(icon) = app_info.icon() {
             let img = Image::from_gicon(&icon);
-            img.set_pixel_size(32);
+            img.set_pixel_size(40);
             hbox.append(&img);
         }
         let vbox = GtkBox::builder().orientation(Orientation::Vertical).valign(Align::Center).build();
-        let name_lbl = Label::builder().label(name.as_str()).halign(Align::Start).css_classes(["cc-label-main"]).build();
+        let name_lbl = Label::builder().label(name.as_str()).halign(Align::Start).css_classes(["spotlight-item-title"]).build();
         vbox.append(&name_lbl);
         if !desc.is_empty() {
-            let desc_lbl = Label::builder().label(desc.as_str()).halign(Align::Start).css_classes(["cc-label-sub"]).ellipsize(gtk4::pango::EllipsizeMode::End).build();
+            let desc_lbl = Label::builder().label(desc.as_str()).halign(Align::Start).css_classes(["spotlight-item-desc"]).ellipsize(gtk4::pango::EllipsizeMode::End).build();
             vbox.append(&desc_lbl);
         }
         hbox.append(&vbox);
@@ -133,13 +133,18 @@ pub fn show_spotlight_modal(app: &Application) {
 
     let card = GtkBox::builder()
         .orientation(Orientation::Vertical)
-        .spacing(12)
+        .spacing(0)
         .css_classes(["spotlight-card"])
         .build();
 
     let entry = Entry::builder()
         .placeholder_text("Cerca Spotlight...")
         .css_classes(["spotlight-input"])
+        .hexpand(true)
+        .margin_top(16)
+        .margin_bottom(16)
+        .margin_start(16)
+        .margin_end(16)
         .build();
 
     let scroll = ScrolledWindow::builder()
