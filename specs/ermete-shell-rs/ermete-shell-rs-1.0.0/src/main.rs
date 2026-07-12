@@ -2028,7 +2028,7 @@ fn show_calendar_popover(app: &Application) {
 fn build_left_island(app: &Application) -> GtkBox {
     let box_left = GtkBox::builder()
         .orientation(Orientation::Horizontal)
-        .spacing(6)
+        .spacing(2)
         .valign(Align::Center)
         .build();
 
@@ -2042,21 +2042,40 @@ fn build_left_island(app: &Application) -> GtkBox {
     });
     box_left.append(&apple_logo);
 
+    let app_title = Button::builder()
+        .label("Ermete OS")
+        .css_classes(["macos-menu-item", "macos-app-title"])
+        .build();
+    box_left.append(&app_title);
+
+    box_left
+}
+
+fn build_center_island(_app: &Application) -> GtkBox {
     let workspace_box = GtkBox::builder()
         .orientation(Orientation::Horizontal)
-        .spacing(4)
+        .spacing(8)
         .valign(Align::Center)
         .build();
-    workspace_box.set_margin_start(10);
-    workspace_box.set_margin_end(10);
-    box_left.append(&workspace_box);
+
+    let scroll_ctrl = gtk4::EventControllerScroll::new(gtk4::EventControllerScrollFlags::VERTICAL);
+    scroll_ctrl.connect_scroll(|_, _dx, dy| {
+        if dy > 0.0 {
+            let _ = Command::new("niri").args(["msg", "action", "focus-workspace-down"]).spawn();
+        } else if dy < 0.0 {
+            let _ = Command::new("niri").args(["msg", "action", "focus-workspace-up"]).spawn();
+        }
+        glib::Propagation::Stop
+    });
+    workspace_box.add_controller(scroll_ctrl);
 
     let (sender, receiver) = glib::MainContext::channel(glib::Priority::DEFAULT);
     spawn_niri_workspace_watcher(sender);
 
+    let workspace_box_clone = workspace_box.clone();
     receiver.attach(None, move |workspaces| {
-        while let Some(child) = workspace_box.first_child() {
-            workspace_box.remove(&child);
+        while let Some(child) = workspace_box_clone.first_child() {
+            workspace_box_clone.remove(&child);
         }
 
         let mut sorted_ws = workspaces.clone();
@@ -2082,18 +2101,12 @@ fn build_left_island(app: &Application) -> GtkBox {
                     .spawn();
             });
 
-            workspace_box.append(&ws_btn);
+            workspace_box_clone.append(&ws_btn);
         }
         glib::ControlFlow::Continue
     });
 
-    let app_title = Button::builder()
-        .label("Ermete OS")
-        .css_classes(["macos-menu-item", "macos-app-title"])
-        .build();
-    box_left.append(&app_title);
-
-    box_left
+    workspace_box
 }
 
 fn get_network_status() -> (String, String, String) {
@@ -2224,7 +2237,7 @@ fn build_ui(app: &Application) {
 
     let center_box = CenterBox::new();
     center_box.set_start_widget(Some(&build_left_island(app)));
-    // Center is empty exactly like macOS Menu Bar
+    center_box.set_center_widget(Some(&build_center_island(app)));
     let (right_island, net_btn) = build_right_island(app, &clock_label);
     center_box.set_end_widget(Some(&right_island));
     center_box.set_hexpand(true);
