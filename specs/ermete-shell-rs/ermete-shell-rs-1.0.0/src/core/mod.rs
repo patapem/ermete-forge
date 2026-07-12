@@ -1,0 +1,190 @@
+use gtk4::CssProvider;
+use chrono::Local;
+use std::io::BufRead;
+use std::process::Command;
+use serde::Deserialize;
+use zbus::interface;
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct NiriWorkspace {
+    pub id: u64,
+    pub idx: u64,
+    pub name: Option<String>,
+    pub output: String,
+    pub is_active: bool,
+    pub is_focused: bool,
+}
+
+pub fn spawn_niri_workspace_watcher(sender: glib::Sender<Vec<NiriWorkspace>>) {
+    std::thread::spawn(move || {
+        if let Ok(output) = Command::new("niri").args(["msg", "-j", "workspaces"]).output() {
+            if let Ok(workspaces) = serde_json::from_slice::<Vec<NiriWorkspace>>(&output.stdout) {
+                let _ = sender.send(workspaces);
+            }
+        }
+
+        let mut child = Command::new("niri")
+            .args(["msg", "-j", "event-stream"])
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn niri event stream");
+
+        if let Some(stdout) = child.stdout.take() {
+            let reader = std::io::BufReader::new(stdout);
+            for line in reader.lines() {
+                if let Ok(line_str) = line {
+                    if line_str.contains("Workspace") {
+                        if let Ok(output) = Command::new("niri").args(["msg", "-j", "workspaces"]).output() {
+                            if let Ok(workspaces) = serde_json::from_slice::<Vec<NiriWorkspace>>(&output.stdout) {
+                                let _ = sender.send(workspaces);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+#[derive(Clone, Debug)]
+pub struct NotificationData {
+    pub id: u32,
+    pub app_name: String,
+    pub summary: String,
+    pub body: String,
+}
+
+thread_local! {
+    pub static NOTIFICATIONS: std::cell::RefCell<Vec<NotificationData>> = std::cell::RefCell::new(Vec::new());
+    pub static CSS_PROVIDER: std::cell::RefCell<Option<CssProvider>> = std::cell::RefCell::new(None);
+}
+
+pub struct NotificationServer {
+    pub sender: glib::Sender<NotificationData>,
+    pub counter: std::sync::atomic::AtomicU32,
+}
+
+#[interface(name = "org.freedesktop.Notifications")]
+impl NotificationServer {
+    async fn notify(
+        &self,
+        app_name: &str,
+        replaces_id: u32,
+        _app_icon: &str,
+        summary: &str,
+        body: &str,
+        _actions: Vec<&str>,
+        _hints: std::collections::HashMap<&str, zbus::zvariant::Value<'_>>,
+        _expire_timeout: i32,
+    ) -> u32 {
+        let id = if replaces_id == 0 {
+            self.counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        } else {
+            replaces_id
+        };
+
+        let notif = NotificationData {
+            id,
+            app_name: app_name.to_string(),
+            summary: summary.to_string(),
+            body: body.to_string(),
+        };
+
+        let _ = self.sender.send(notif);
+        id
+    }
+
+    async fn get_capabilities(&self) -> Vec<&str> {
+        vec!["body"]
+    }
+
+    async fn get_server_information(&self) -> (&str, &str, &str, &str) {
+        ("Ermete Notifications", "Ermete OS", "1.0", "1.2")
+    }
+
+    async fn close_notification(&self, _id: u32) {}
+}
+
+// Orologio macOS: "sab 11 lug 14:47"
+pub fn macos_clock_string() -> String {
+    Local::now().format("%a %d %b %H:%M").to_string()
+}
+
+pub fn get_ram_info() -> (String, f64) {
+    let mut total_kb = 0.0;
+    let mut avail_kb = 0.0;
+    if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+        for line in content.lines() {
+            if line.starts_with("MemTotal:") {
+                if let Some(val) = line.split_whitespace().nth(1) {
+                    total_kb = val.parse::<f64>().unwrap_or(0.0);
+                }
+            } else if line.starts_with("MemAvailable:") {
+                if let Some(val) = line.split_whitespace().nth(1) {
+                    avail_kb = val.parse::<f64>().unwrap_or(0.0);
+                }
+            }
+        }
+    }
+    if total_kb > 0.0 {
+        let used_kb = total_kb - avail_kb;
+        let frac = (used_kb / total_kb).clamp(0.0, 1.0);
+        let used_gb = used_kb / 1048576.0;
+        let total_gb = total_kb / 1048576.0;
+        (
+            format!("{:.1} GB / {:.1} GB ({:.0}%)", used_gb, total_gb, frac * 100.0),
+            frac,
+        )
+    } else {
+        ("N/D".to_string(), 0.0)
+    }
+}
+
+
+pub fn get_cpu_load() -> (String, f64) {
+    if let Ok(content) = std::fs::read_to_string("/proc/loadavg") {
+        if let Some(load_str) = content.split_whitespace().next() {
+            let load = load_str.parse::<f64>().unwrap_or(0.0);
+            let frac = (load / 4.0).clamp(0.0, 1.0);
+            return (format!("Carico 1m: {}", load_str), frac);
+        }
+    }
+    ("N/D".to_string(), 0.0)
+}
+
+
+pub fn get_network_status() -> (String, String, String) {
+    if let Ok(output) = Command::new("nmcli")
+        .args(["-t", "-f", "TYPE,STATE,NAME", "connection", "show", "--active"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() >= 3 {
+                let ctype = parts[0];
+                let state = parts[1];
+                let name = parts[2];
+                if state == "activated" {
+                    if ctype == "802-3-ethernet" || ctype == "ethernet" {
+                        return ("󰈀".to_string(), "Ethernet".to_string(), "Connesso via cavo".to_string());
+                    }
+                    if ctype == "802-11-wireless" || ctype == "wifi" {
+                        return ("".to_string(), "Rete Wi-Fi".to_string(), name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    if let Ok(output) = Command::new("nmcli").args(["radio", "wifi"]).output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.trim() == "disabled" {
+            return ("󰖪".to_string(), "Rete Wi-Fi".to_string(), "Disattivato".to_string());
+        }
+    }
+
+    ("󰖪".to_string(), "Rete Wi-Fi".to_string(), "Non connesso".to_string())
+}
+
+// Right Section: Authentic macOS Dongles/Status Items

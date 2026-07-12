@@ -25,8 +25,8 @@ fn authenticate(password: &str) -> Result<(), String> {
     let path = std::env::var("GREETD_SOCK").unwrap_or_else(|_| "/run/greetd.sock".to_string());
     let mut stream = UnixStream::connect(path).map_err(|e| e.to_string())?;
 
-    // CreateSession
-    let req = Request::CreateSession { username: "ermete".to_string() };
+    let username = std::env::var("USER").unwrap_or_else(|_| "ermete".to_string());
+    let req = Request::CreateSession { username };
     let resp = send_request(&mut stream, &req)?;
 
     match resp {
@@ -96,20 +96,31 @@ pub fn build_ui(app: &Application) {
         .build();
         
     password_entry.connect_activate(move |entry| {
-        let password = entry.text();
+        let password = entry.text().to_string();
         entry.set_sensitive(false);
-        match authenticate(&password) {
-            Ok(_) => {
-                // Success: greetd should replace us or we can close the window
-                std::process::exit(0);
+        
+        let (sender, receiver) = glib::MainContext::channel::<Result<(), String>>(glib::Priority::DEFAULT);
+        
+        std::thread::spawn(move || {
+            let res = authenticate(&password);
+            let _ = sender.send(res);
+        });
+        
+        let entry_clone = entry.clone();
+        receiver.attach(None, move |res| {
+            match res {
+                Ok(_) => {
+                    std::process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("Login failed: {}", e);
+                    entry_clone.set_text("");
+                    entry_clone.set_sensitive(true);
+                    entry_clone.grab_focus();
+                }
             }
-            Err(e) => {
-                eprintln!("Login failed: {}", e);
-                entry.set_text("");
-                entry.set_sensitive(true);
-                entry.grab_focus();
-            }
-        }
+            glib::ControlFlow::Break
+        });
     });
 
     vbox.append(&user_label);
