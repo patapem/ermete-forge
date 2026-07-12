@@ -1,3 +1,4 @@
+pub mod network;
 use gtk4::CssProvider;
 use chrono::Local;
 use std::io::BufRead;
