@@ -405,6 +405,7 @@ version = "1.0.0"
 dependencies = [
  "chrono",
  "clap",
+ "futures-util",
  "glib",
  "greetd_ipc",
  "gtk4",

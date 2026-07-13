@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-shell-rs
 Version:        1.0.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Ermete OS Native Rust GTK4 Shell
 
 License:        MIT
@@ -27,6 +27,9 @@ install -m 0755 target/release/ermete-shell-rs %{buildroot}%{_bindir}/ermete-she
 %{_bindir}/ermete-shell-rs
 
 %changelog
+* Mon Jul 13 2026 Ermete Forge <forge@ermete.os> - 1.0.0-4
+- Implement single-instance command dispatching, Powermenu modal (--powermenu), and Clipboard Manager modal (--clipboard).
+
 * Sat Jul 11 2026 Ermete Forge <forge@ermete.os> - 1.0.0-2
 - Implement Full Rust GTK4 Layer Shell Top Bar with 3-zone layout and native styling
 
