@@ -15,20 +15,14 @@
     "bibata",
     "dart-sass",
     "shell-rs",
+    "settings-rs",
+    "daemon-rs",
+    "store-rs",
+    "doctor",
     "cliphist"
   ],
   "cachyos_addons": [],
-  "ags_ecosystem": [
-    "appmenu-glib-translator",
-    "astal-io",
-    "astal",
-    "astal-libs",
-    "astal-gjs",
-    "astal-gtk4",
-    "astal-lua",
-    "aylurs-gtk-shell2",
-    "hyprpanel"
-  ],
+  "ags_ecosystem": [],
   "upstream_core": [
     "brightnessctl",
     "btrfs-progs",
