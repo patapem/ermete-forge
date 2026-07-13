@@ -1,6 +1,52 @@
 use gtk4::prelude::*;
-use gtk4::{Align, Box, Button, Grid, Label, Orientation, Switch};
+use gtk4::{Align, Box, Button, Grid, Label, Orientation, ScrolledWindow, Switch};
+use std::path::{Path, PathBuf};
 use std::process::Command;
+
+fn is_dock_active() -> bool {
+    Command::new("systemctl")
+        .args(["--user", "is-active", "--quiet", "ermete-dock.service"])
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn scan_dir(dir: &Path, wallpapers: &mut Vec<PathBuf>, depth: usize) {
+    if depth > 3 {
+        return;
+    }
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                scan_dir(&path, wallpapers, depth + 1);
+            } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                let ext_lower = ext.to_lowercase();
+                if ["png", "jpg", "jpeg", "webp", "gif"].contains(&ext_lower.as_str()) {
+                    wallpapers.push(path);
+                }
+            }
+        }
+    }
+}
+
+fn scan_wallpapers() -> Vec<PathBuf> {
+    let mut wallpapers = Vec::new();
+    let dirs = ["/usr/share/backgrounds", "/usr/share/wallpapers"];
+    for d in dirs {
+        scan_dir(Path::new(d), &mut wallpapers, 0);
+    }
+    wallpapers.sort();
+    wallpapers.dedup();
+
+    if wallpapers.is_empty() {
+        wallpapers.push(PathBuf::from("/usr/share/backgrounds/default.png"));
+        wallpapers.push(PathBuf::from("/usr/share/backgrounds/ermete-wallpaper-1.jpg"));
+        wallpapers.push(PathBuf::from("/usr/share/backgrounds/ermete-wallpaper-2.jpg"));
+    }
+
+    wallpapers
+}
 
 pub fn build_page() -> Box {
     let container = Box::builder()
@@ -21,6 +67,49 @@ pub fn build_page() -> Box {
 
     container.append(&title);
 
+    // Dock Section
+    let dock_label_heading = Label::builder()
+        .label("Dock")
+        .halign(Align::Start)
+        .css_classes(["heading"])
+        .build();
+    container.append(&dock_label_heading);
+
+    let dock_box = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .build();
+
+    let dock_label = Label::builder()
+        .label("Mostra Dock in basso")
+        .halign(Align::Start)
+        .hexpand(true)
+        .build();
+
+    let dock_switch = Switch::builder()
+        .valign(Align::Center)
+        .active(is_dock_active())
+        .build();
+
+    dock_switch.connect_state_set(|_, state| {
+        if state {
+            let _ = Command::new("systemctl")
+                .args(["--user", "start", "ermete-dock.service"])
+                .spawn();
+            println!("Dock enabled (ermete-dock.service started)");
+        } else {
+            let _ = Command::new("systemctl")
+                .args(["--user", "stop", "ermete-dock.service"])
+                .spawn();
+            println!("Dock disabled (ermete-dock.service stopped)");
+        }
+        gtk4::glib::Propagation::Proceed
+    });
+
+    dock_box.append(&dock_label);
+    dock_box.append(&dock_switch);
+    container.append(&dock_box);
+
     // Wallpaper Section
     let wallpaper_label = Label::builder()
         .label("Wallpaper")
@@ -34,67 +123,49 @@ pub fn build_page() -> Box {
         .row_spacing(12)
         .build();
 
-    for i in 0..3 {
+    let wallpapers = scan_wallpapers();
+    let columns = 3;
+
+    for (i, path) in wallpapers.iter().enumerate() {
+        let col = (i % columns) as i32;
+        let row = (i / columns) as i32;
+
+        let label_text = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Wallpaper")
+            .to_string();
+
         let btn = Button::builder()
-            .label(format!("Wallpaper {}", i + 1))
-            .width_request(160)
-            .height_request(90)
+            .label(&label_text)
+            .width_request(180)
+            .height_request(100)
+            .tooltip_text(path.to_string_lossy().as_ref())
             .build();
-        
+
+        let path_clone = path.clone();
         btn.connect_clicked(move |_| {
-            // Dummy command to set wallpaper
-            let _ = Command::new("sh")
-                .arg("-c")
-                .arg(format!("swww img /path/to/wall_{}", i + 1))
+            let abs_path = path_clone.to_string_lossy().to_string();
+            let _ = Command::new("swww")
+                .arg("img")
+                .arg(&abs_path)
+                .args(["--transition-type", "grow", "--transition-pos", "0.5,0.5"])
                 .spawn();
-            println!("Wallpaper {} selected", i + 1);
+            println!("Wallpaper selected: {}", abs_path);
         });
 
-        wallpaper_grid.attach(&btn, i, 0, 1, 1);
+        wallpaper_grid.attach(&btn, col, row, 1, 1);
     }
-    
-    container.append(&wallpaper_grid);
 
-    // Dock Section
-    let dock_box = Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(12)
-        .margin_top(12)
+    let scroll = ScrolledWindow::builder()
+        .hscrollbar_policy(gtk4::PolicyType::Never)
+        .vscrollbar_policy(gtk4::PolicyType::Automatic)
+        .vexpand(true)
+        .child(&wallpaper_grid)
         .build();
 
-    let dock_label = Label::builder()
-        .label("Mostra Dock in basso")
-        .halign(Align::Start)
-        .hexpand(true)
-        .build();
-
-    let dock_switch = Switch::builder()
-        .valign(Align::Center)
-        .build();
-
-    dock_switch.connect_state_set(|_, state| {
-        if state {
-            // Dummy command to spawn dock
-            let _ = Command::new("sh")
-                .arg("-c")
-                .arg("echo 'Spawn dock command here'")
-                .spawn();
-            println!("Dock enabled");
-        } else {
-            // Dummy command to kill dock
-            let _ = Command::new("sh")
-                .arg("-c")
-                .arg("echo 'Kill dock command here'")
-                .spawn();
-            println!("Dock disabled");
-        }
-        gtk4::glib::Propagation::Proceed
-    });
-
-    dock_box.append(&dock_label);
-    dock_box.append(&dock_switch);
-
-    container.append(&dock_box);
+    container.append(&scroll);
 
     container
 }
+
