@@ -1,6 +1,6 @@
 Name:           ermete-settings-rs
 Version:        1.0.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Pure Rust native System Settings for Ermete OS
 
 License:        GPLv3+
@@ -31,6 +31,9 @@ install -m 0644 os.ermete.Settings.desktop $RPM_BUILD_ROOT/%{_datadir}/applicati
 %{_datadir}/applications/os.ermete.Settings.desktop
 
 %changelog
+* Mon Jul 13 2026 Ermete Forge <forge@ermete.os> - 1.0.0-3
+- Dynamic Matugen theme generation & wallpaper integration
+
 * Mon Jul 13 2026 Ermete Forge <forge@ermete.os> - 1.0.0-2
 - Complete audio sync, desktop entry and bump spec release to 2
 

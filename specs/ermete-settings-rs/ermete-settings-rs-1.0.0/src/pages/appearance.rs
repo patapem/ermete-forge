@@ -89,28 +89,34 @@ pub fn build_page() -> Box {
         .halign(Align::Center)
         .build();
 
-    let accents = vec![
-        ("Blu", "blue"),
-        ("Rosso", "red"),
-        ("Verde", "green"),
-        ("Arancione", "orange"),
-        ("Viola", "purple"),
-        ("Rosa", "pink"),
+    let accents = [
+        ("Blu", "blue", "#89b4fa"),
+        ("Rosso", "red", "#f38ba8"),
+        ("Verde", "green", "#a6e3a1"),
+        ("Arancione", "orange", "#fab387"),
+        ("Viola", "purple", "#cba6f7"),
+        ("Rosa", "pink", "#f5c2e7"),
     ];
 
-    for (name, val) in accents {
+    for (name, gnome_val, hex_val) in accents {
         let btn = Button::with_label(name);
         btn.set_size_request(80, 40);
-        let val_clone = val.to_string();
+        let gnome_clone = gnome_val.to_string();
+        let hex_clone = hex_val.to_string();
         btn.connect_clicked(move |_| {
-            let _ = Command::new("gsettings")
+            Command::new("gsettings")
                 .args([
                     "set",
                     "org.gnome.desktop.interface",
                     "accent-color",
-                    &val_clone,
+                    &gnome_clone,
                 ])
-                .spawn();
+                .spawn()
+                .ok();
+            Command::new("matugen")
+                .args(["color", "hex", &hex_clone])
+                .spawn()
+                .ok();
         });
         accent_box.append(&btn);
     }
