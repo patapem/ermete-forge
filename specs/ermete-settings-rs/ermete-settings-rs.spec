@@ -1,6 +1,7 @@
+%global debug_package %{nil}
 Name:           ermete-settings-rs
 Version:        1.0.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Pure Rust native System Settings for Ermete OS
 
 License:        GPLv3+
