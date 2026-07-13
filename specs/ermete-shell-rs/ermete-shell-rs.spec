@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-shell-rs
 Version:        1.0.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Ermete OS Native Rust GTK4 Shell
 
 License:        MIT
@@ -27,6 +27,9 @@ install -m 0755 target/release/ermete-shell-rs %{buildroot}%{_bindir}/ermete-she
 %{_bindir}/ermete-shell-rs
 
 %changelog
+* Mon Jul 13 2026 Ermete Forge <forge@ermete.os> - 1.0.0-6
+- Fix greeter PAM authentication username resolution and add premium GTK4 CSS design
+
 * Mon Jul 13 2026 Ermete Forge <forge@ermete.os> - 1.0.0-5
 - Add Control Center header Settings button and quick setting tile deeplinks (--page <id>)
 
