@@ -38,27 +38,53 @@ pub fn build_page() -> Box {
     // Connect scan button click handler
     scan_btn.connect_clicked(move |_| {
         let list_box = list_box_clone.clone();
-        // Clear list_box first
+        
+        // Show loading state
         while let Some(child) = list_box.first_child() {
             list_box.remove(&child);
         }
+        let loading_label = Label::new(Some("Caricamento..."));
+        loading_label.set_margin_top(12);
+        loading_label.set_margin_bottom(12);
+        list_box.append(&loading_label);
 
         let ctx = gtk4::glib::MainContext::default();
         ctx.spawn_local(async move {
-            if let Ok(conn) = zbus::Connection::session().await {
-                if let Ok(proxy) = NetworkProxy::new(&conn).await {
-                    if let Ok(networks) = proxy.scan_networks().await {
-                        for ssid in networks {
-                            let label = Label::new(Some(&ssid));
-                            label.set_halign(gtk4::Align::Start);
-                            label.set_margin_top(12);
-                            label.set_margin_bottom(12);
-                            label.set_margin_start(12);
-                            label.set_margin_end(12);
-                            list_box.append(&label);
+            match crate::get_connection().await {
+                Ok(conn) => {
+                    match NetworkProxy::new(&conn).await {
+                        Ok(proxy) => {
+                            match proxy.scan_networks().await {
+                                Ok(networks) => {
+                                    while let Some(child) = list_box.first_child() {
+                                        list_box.remove(&child);
+                                    }
+                                    for ssid in networks {
+                                        let label = Label::new(Some(&ssid));
+                                        label.set_halign(gtk4::Align::Start);
+                                        label.set_margin_top(12);
+                                        label.set_margin_bottom(12);
+                                        label.set_margin_start(12);
+                                        label.set_margin_end(12);
+                                        list_box.append(&label);
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("Error scanning networks: {:?}", e);
+                                    while let Some(child) = list_box.first_child() {
+                                        list_box.remove(&child);
+                                    }
+                                    let error_label = Label::new(Some("Errore durante la scansione"));
+                                    error_label.set_margin_top(12);
+                                    error_label.set_margin_bottom(12);
+                                    list_box.append(&error_label);
+                                }
+                            }
                         }
+                        Err(e) => eprintln!("Error creating DBus proxy for Network: {:?}", e),
                     }
                 }
+                Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
             }
         });
     });

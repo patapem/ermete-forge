@@ -1,6 +1,20 @@
 pub mod pages;
 use gtk4::prelude::*;
 use gtk4::{Application, ApplicationWindow, Box as GtkBox, Orientation, Label, Stack, Align, ListBox, ListBoxRow, Image};
+use std::cell::RefCell;
+
+thread_local! {
+    pub static DBUS_CONN: RefCell<Option<zbus::Connection>> = RefCell::new(None);
+}
+
+pub async fn get_connection() -> Result<zbus::Connection, zbus::Error> {
+    if let Some(conn) = DBUS_CONN.with(|c| c.borrow().clone()) {
+        return Ok(conn);
+    }
+    let conn = zbus::Connection::session().await?;
+    DBUS_CONN.with(|c| *c.borrow_mut() = Some(conn.clone()));
+    Ok(conn)
+}
 
 fn build_ui(app: &Application) {
     let window = ApplicationWindow::builder()

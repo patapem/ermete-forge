@@ -45,29 +45,27 @@ struct Network;
 
 #[zbus::dbus_interface(name = "os.ermete.Bedrock.Network")]
 impl Network {
-    async fn scan_networks(&self) -> Vec<String> {
+    async fn scan_networks(&self) -> zbus::fdo::Result<Vec<String>> {
         let output = tokio::process::Command::new("nmcli")
             .args(["-t", "-f", "SSID", "dev", "wifi"])
             .output()
-            .await;
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
 
         let mut networks = vec![];
-        if let Ok(out) = output {
-            if out.status.success() {
-                let stdout = String::from_utf8_lossy(&out.stdout);
-                for line in stdout.lines() {
-                    let ssid = line.trim();
-                    if !ssid.is_empty() {
-                        networks.push(ssid.to_string());
-                    }
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let ssid = line.trim();
+                if !ssid.is_empty() {
+                    networks.push(ssid.to_string());
                 }
             }
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(zbus::fdo::Error::Failed(format!("nmcli failed: {}", stderr)));
         }
-        if networks.is_empty() {
-            networks.push("Home_5G".to_string());
-            networks.push("Guest".to_string());
-        }
-        networks
+        Ok(networks)
     }
 }
 
@@ -84,39 +82,44 @@ impl Bluetooth {
     }
 
     #[dbus_interface(property)]
-    async fn set_power(&mut self, val: bool) {
-        self.power = val;
+    async fn set_power(&mut self, val: bool) -> zbus::fdo::Result<()> {
         let arg = if val { "on" } else { "off" };
-        let _ = tokio::process::Command::new("bluetoothctl")
+        let output = tokio::process::Command::new("bluetoothctl")
             .args(["power", arg])
             .output()
-            .await;
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
+            
+        if output.status.success() {
+            self.power = val;
+            Ok(())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(zbus::fdo::Error::Failed(format!("bluetoothctl power failed: {}", stderr)))
+        }
     }
 
-    async fn get_devices(&self) -> Vec<String> {
+    async fn get_devices(&self) -> zbus::fdo::Result<Vec<String>> {
         let output = tokio::process::Command::new("bluetoothctl")
             .arg("devices")
             .output()
-            .await;
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
             
         let mut devices = vec![];
-        if let Ok(out) = output {
-            if out.status.success() {
-                let stdout = String::from_utf8_lossy(&out.stdout);
-                for line in stdout.lines() {
-                    let parts: Vec<&str> = line.splitn(3, ' ').collect();
-                    if parts.len() == 3 {
-                        devices.push(parts[2].to_string());
-                    }
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let parts: Vec<&str> = line.splitn(3, ' ').collect();
+                if parts.len() == 3 {
+                    devices.push(parts[2].to_string());
                 }
             }
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(zbus::fdo::Error::Failed(format!("bluetoothctl devices failed: {}", stderr)));
         }
-        if devices.is_empty() {
-            devices.push("AirPods".to_string());
-            devices.push("Mouse".to_string());
-            devices.push("Tastiera".to_string());
-        }
-        devices
+        Ok(devices)
     }
 }
 

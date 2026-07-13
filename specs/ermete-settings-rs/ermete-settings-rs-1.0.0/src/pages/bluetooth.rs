@@ -53,12 +53,19 @@ pub fn build_page() -> Box {
     let power_switch_clone = power_switch.clone();
     let ctx = gtk4::glib::MainContext::default();
     ctx.spawn_local(async move {
-        if let Ok(conn) = zbus::Connection::session().await {
-            if let Ok(proxy) = BluetoothProxy::new(&conn).await {
-                if let Ok(power) = proxy.power().await {
-                    power_switch_clone.set_active(power);
+        match crate::get_connection().await {
+            Ok(conn) => {
+                match BluetoothProxy::new(&conn).await {
+                    Ok(proxy) => {
+                        match proxy.power().await {
+                            Ok(power) => power_switch_clone.set_active(power),
+                            Err(e) => eprintln!("Error getting Bluetooth power state: {:?}", e),
+                        }
+                    }
+                    Err(e) => eprintln!("Error creating DBus proxy for Bluetooth: {:?}", e),
                 }
             }
+            Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
         }
     });
 
@@ -66,10 +73,18 @@ pub fn build_page() -> Box {
         let state = switch.is_active();
         let ctx = gtk4::glib::MainContext::default();
         ctx.spawn_local(async move {
-            if let Ok(conn) = zbus::Connection::session().await {
-                if let Ok(proxy) = BluetoothProxy::new(&conn).await {
-                    let _ = proxy.set_power(state).await;
+            match crate::get_connection().await {
+                Ok(conn) => {
+                    match BluetoothProxy::new(&conn).await {
+                        Ok(proxy) => {
+                            if let Err(e) = proxy.set_power(state).await {
+                                eprintln!("Error setting Bluetooth power state: {:?}", e);
+                            }
+                        }
+                        Err(e) => eprintln!("Error creating DBus proxy for Bluetooth: {:?}", e),
+                    }
                 }
+                Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
             }
         });
     });
@@ -94,41 +109,68 @@ pub fn build_page() -> Box {
 
     search_button.connect_clicked(move |_| {
         let list_box = list_box_clone.clone();
+        
+        // Show loading state
         while let Some(child) = list_box.first_child() {
             list_box.remove(&child);
         }
+        let loading_label = Label::new(Some("Caricamento..."));
+        loading_label.set_margin_top(12);
+        loading_label.set_margin_bottom(12);
+        list_box.append(&loading_label);
         
         let ctx = gtk4::glib::MainContext::default();
         ctx.spawn_local(async move {
-            if let Ok(conn) = zbus::Connection::session().await {
-                if let Ok(proxy) = BluetoothProxy::new(&conn).await {
-                    if let Ok(devices) = proxy.get_devices().await {
-                        for device in devices {
-                            let row_box = Box::builder()
-                                .orientation(Orientation::Horizontal)
-                                .spacing(12)
-                                .margin_top(12)
-                                .margin_bottom(12)
-                                .margin_start(12)
-                                .margin_end(12)
-                                .build();
-                                
-                            let label = Label::new(Some(&device));
-                            label.set_halign(Align::Start);
-                            label.set_hexpand(true);
-                            
-                            let connect_btn = Button::builder()
-                                .label("Connetti")
-                                .valign(Align::Center)
-                                .build();
-                                
-                            row_box.append(&label);
-                            row_box.append(&connect_btn);
-                            
-                            list_box.append(&row_box);
+            match crate::get_connection().await {
+                Ok(conn) => {
+                    match BluetoothProxy::new(&conn).await {
+                        Ok(proxy) => {
+                            match proxy.get_devices().await {
+                                Ok(devices) => {
+                                    while let Some(child) = list_box.first_child() {
+                                        list_box.remove(&child);
+                                    }
+                                    for device in devices {
+                                        let row_box = Box::builder()
+                                            .orientation(Orientation::Horizontal)
+                                            .spacing(12)
+                                            .margin_top(12)
+                                            .margin_bottom(12)
+                                            .margin_start(12)
+                                            .margin_end(12)
+                                            .build();
+                                            
+                                        let label = Label::new(Some(&device));
+                                        label.set_halign(Align::Start);
+                                        label.set_hexpand(true);
+                                        
+                                        let connect_btn = Button::builder()
+                                            .label("Connetti")
+                                            .valign(Align::Center)
+                                            .build();
+                                            
+                                        row_box.append(&label);
+                                        row_box.append(&connect_btn);
+                                        
+                                        list_box.append(&row_box);
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("Error getting Bluetooth devices: {:?}", e);
+                                    while let Some(child) = list_box.first_child() {
+                                        list_box.remove(&child);
+                                    }
+                                    let error_label = Label::new(Some("Errore durante la ricerca"));
+                                    error_label.set_margin_top(12);
+                                    error_label.set_margin_bottom(12);
+                                    list_box.append(&error_label);
+                                }
+                            }
                         }
+                        Err(e) => eprintln!("Error creating DBus proxy for Bluetooth: {:?}", e),
                     }
                 }
+                Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
             }
         });
     });
