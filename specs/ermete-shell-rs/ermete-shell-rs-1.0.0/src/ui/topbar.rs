@@ -739,6 +739,9 @@ fn build_right_island(app: &Application, clock_label: &Label) -> (GtkBox, Button
 }
 
 pub fn build_ui(app: &Application) {
+    if UI_BUILT.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
     load_css();
     spawn_css_watcher();
     spawn_notification_daemon(app);
@@ -867,6 +870,8 @@ pub fn handle_command(app: &Application, arg: &str) {
         "wifi" => toggle_or_open_popup("wifi", || show_wifi_popover(app)),
         "bluetooth" => toggle_or_open_popup("bluetooth", || show_bluetooth_popover(app)),
         "start-menu" | "menu" => toggle_or_open_popup("launcher", || show_start_menu_popover(app)),
+        "powermenu" => toggle_or_open_popup("powermenu", || crate::ui::powermenu::show_powermenu_modal(app)),
+        "clipboard" => toggle_or_open_popup("clipboard", || crate::ui::clipboard::show_clipboard_modal(app)),
         _ => {}
     }
 }

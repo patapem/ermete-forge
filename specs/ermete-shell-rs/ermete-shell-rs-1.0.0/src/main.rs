@@ -1,6 +1,6 @@
 use clap::Parser;
 use gtk4::prelude::*;
-use gtk4::Application;
+use gtk4::{gio, Application};
 
 // Dummy modules for now
 mod ui;
@@ -17,44 +17,61 @@ struct Args {
     #[arg(long)]
     spotlight: bool,
     #[arg(long)]
+    launcher: bool,
+    #[arg(long)]
     dock: bool,
     #[arg(long)]
     control_center: bool,
+    #[arg(long)]
+    media_player: bool,
+    #[arg(long)]
+    sys_monitor: bool,
+    #[arg(long)]
+    calendar: bool,
+    #[arg(long)]
+    powermenu: bool,
+    #[arg(long)]
+    clipboard: bool,
 }
 
 const APP_ID: &str = "os.ermete.Shell";
 
 fn main() -> glib::ExitCode {
     let args = Args::parse();
-    
-    // We need a unique app_id if we want spotlight to run concurrently without DBus collision for now
-    let app_id = if args.spotlight {
-        "os.ermete.Spotlight"
-    } else if args.dock {
-        "os.ermete.Dock"
-    } else if args.control_center {
-        "os.ermete.ControlCenter"
-    } else {
-        APP_ID
-    };
-    let app = Application::builder().application_id(app_id).build();
-    
-    app.connect_activate(move |app| {
-        if args.topbar {
-            ui::topbar::build_ui(app);
-            crate::ui::osd::spawn_osd(app);
-        } else if args.greeter {
+
+    // If greeter mode is requested explicitly, run standalone greeter app
+    if args.greeter {
+        let app = Application::builder()
+            .application_id("os.ermete.Greeter")
+            .build();
+        app.connect_activate(|app| {
             greeter::build_ui(app);
-        } else if args.spotlight {
-            ui::spotlight::show_spotlight_modal(app);
-        } else if args.dock {
-            ui::dock::build_ui(app);
-        } else if args.control_center {
-            ui::control_center::show_control_center_popover(app);
-        } else {
-            eprintln!("Error: specify --topbar, --greeter, --spotlight, --dock, or --control-center");
-        }
+        });
+        return app.run_with_args(&Vec::<String>::new());
+    }
+
+    let app = Application::builder()
+        .application_id(APP_ID)
+        .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
+        .build();
+
+    app.connect_activate(move |app| {
+        // Resident topbar + OSD + DBus notifications
+        ui::topbar::build_ui(app);
+        crate::ui::osd::spawn_osd(app);
     });
-    
-    app.run_with_args(&Vec::<String>::new())
+
+    app.connect_command_line(move |app, cmdline| {
+        app.activate();
+        let args = cmdline.arguments();
+        for arg in args.iter().skip(1) {
+            let s = arg.to_string_lossy();
+            let clean = s.trim_start_matches("--");
+            crate::ui::topbar::handle_command(app, clean);
+        }
+        0
+    });
+
+    // Pass original CLI args to run so GTK forwards them to primary instance
+    app.run()
 }
