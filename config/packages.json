@@ -22,7 +22,6 @@
     "cliphist"
   ],
   "cachyos_addons": [],
-  "ags_ecosystem": [],
   "upstream_core": [
     "brightnessctl",
     "btrfs-progs",

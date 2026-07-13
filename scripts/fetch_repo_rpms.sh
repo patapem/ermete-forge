@@ -16,7 +16,6 @@ IMAGES=(
 # Fetch package lists dynamically from Single Source of Truth
 readarray -t CUSTOM_PKGS < <(jq -r '.custom_packages[]' config/packages.json)
 
-readarray -t AGS_PKGS < <(jq -r '.ags_ecosystem[]' config/packages.json)
 readarray -t UPSTREAM_CORE < <(jq -r '.upstream_core[]' config/packages.json)
 readarray -t UPSTREAM_DESKTOP < <(jq -r '.upstream_desktop[]' config/packages.json)
 readarray -t UPSTREAM_MEDIA < <(jq -r '.upstream_media[]' config/packages.json)
@@ -24,13 +23,6 @@ readarray -t UPSTREAM_CLI < <(jq -r '.upstream_cli[]' config/packages.json)
 
 # Custom Packages
 for pkg in "${CUSTOM_PKGS[@]}"; do
-  IMAGES+=("ermete-forge-$pkg")
-done
-
-
-
-# AGS Ecosystem
-for pkg in "${AGS_PKGS[@]}"; do
   IMAGES+=("ermete-forge-$pkg")
 done
 
