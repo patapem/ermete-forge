@@ -1,5 +1,5 @@
 use gtk4::prelude::*;
-use gtk4::{Application, ApplicationWindow, Box, Entry, Label, Orientation, Align};
+use gtk4::{Application, ApplicationWindow, Box, Button, Entry, Label, Orientation, Align};
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use std::os::unix::net::UnixStream;
 use std::io::{Read, Write};
@@ -10,33 +10,75 @@ window.background {
     background-color: rgba(10, 12, 16, 0.45);
 }
 
+.greeter-topbar-title {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.greeter-status-pill {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    background-color: rgba(255, 255, 255, 0.12);
+    padding: 6px 14px;
+    border-radius: 999px;
+}
+
+.greeter-clock-time {
+    font-size: 68px;
+    font-weight: 300;
+    color: #ffffff;
+    letter-spacing: -1px;
+}
+
+.greeter-clock-date {
+    font-size: 18px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.80);
+    margin-bottom: 12px;
+}
+
 .greeter-card {
-    background-color: rgba(22, 25, 33, 0.90);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 24px;
-    padding: 42px 48px;
-    min-width: 340px;
+    background-color: rgba(22, 25, 33, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 28px;
+    padding: 36px 48px;
+    min-width: 360px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
 }
 
-.greeter-os-title {
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 3px;
-    color: rgba(255, 255, 255, 0.45);
+.greeter-avatar {
+    font-size: 36px;
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.12);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    min-width: 76px;
+    min-height: 76px;
 }
 
 .greeter-user-name {
-    font-size: 26px;
+    font-size: 24px;
     font-weight: 700;
     color: #ffffff;
-    margin-bottom: 8px;
+    margin-top: 12px;
+}
+
+.greeter-badge {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.50);
+    margin-top: 4px;
+    margin-bottom: 18px;
 }
 
 .greeter-entry {
-    background-color: rgba(255, 255, 255, 0.07);
+    background-color: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 12px;
+    border-radius: 14px;
     color: #ffffff;
     caret-color: #6ea8fe;
     font-size: 15px;
@@ -46,16 +88,59 @@ window.background {
 
 .greeter-entry:focus {
     border-color: #6ea8fe;
-    background-color: rgba(255, 255, 255, 0.11);
+    background-color: rgba(255, 255, 255, 0.12);
 }
 
 .greeter-error {
     color: #ff6b6b;
     font-size: 13px;
     font-weight: 600;
-    margin-top: 4px;
+    margin-top: 8px;
+}
+
+.greeter-power-btn {
+    background-color: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 20px;
+}
+
+.greeter-power-btn:hover {
+    background-color: rgba(255, 255, 255, 0.18);
 }
 "#;
+
+fn format_italian_date(now: &chrono::DateTime<chrono::Local>) -> String {
+    use chrono::Datelike;
+    let weekday = match now.weekday() {
+        chrono::Weekday::Mon => "lunedì",
+        chrono::Weekday::Tue => "martedì",
+        chrono::Weekday::Wed => "mercoledì",
+        chrono::Weekday::Thu => "giovedì",
+        chrono::Weekday::Fri => "venerdì",
+        chrono::Weekday::Sat => "sabato",
+        chrono::Weekday::Sun => "domenica",
+    };
+    let month = match now.month() {
+        1 => "gennaio",
+        2 => "febbraio",
+        3 => "marzo",
+        4 => "aprile",
+        5 => "maggio",
+        6 => "giugno",
+        7 => "luglio",
+        8 => "agosto",
+        9 => "settembre",
+        10 => "ottobre",
+        11 => "novembre",
+        12 => "dicembre",
+        _ => "",
+    };
+    format!("{}, {} {}", weekday, now.day(), month)
+}
 
 fn send_request(stream: &mut UnixStream, req: &Request) -> Result<Response, String> {
     let json = serde_json::to_string(req).map_err(|e| e.to_string())?;
@@ -117,16 +202,16 @@ fn authenticate(password: &str) -> Result<(), String> {
             }
         },
         Response::Success => {
-             let req = Request::StartSession {
-                 cmd: vec![session_cmd],
-                 env: vec![],
-             };
-             let resp = send_request(&mut stream, &req)?;
-             match resp {
-                 Response::Success => Ok(()),
-                 Response::Error { description, .. } => Err(description),
-                 _ => Err("Unexpected response to StartSession".to_string()),
-             }
+            let req = Request::StartSession {
+                cmd: vec![session_cmd],
+                env: vec![],
+            };
+            let resp = send_request(&mut stream, &req)?;
+            match resp {
+                Response::Success => Ok(()),
+                Response::Error { description, .. } => Err(description),
+                _ => Err("Unexpected response to StartSession".to_string()),
+            }
         },
         Response::Error { description, .. } => Err(description),
     }
@@ -141,7 +226,7 @@ pub fn build_ui(app: &Application) {
     window.init_layer_shell();
     window.set_layer(Layer::Overlay);
     window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
-    
+
     window.set_anchor(Edge::Top, true);
     window.set_anchor(Edge::Bottom, true);
     window.set_anchor(Edge::Left, true);
@@ -156,25 +241,104 @@ pub fn build_ui(app: &Application) {
             gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
     }
-    
-    let vbox = Box::builder()
+
+    let root_vbox = Box::builder()
+        .orientation(Orientation::Vertical)
+        .hexpand(true)
+        .vexpand(true)
+        .build();
+
+    // Zone 1: Top Bar
+    let topbar = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .margin_top(20)
+        .margin_start(28)
+        .margin_end(28)
+        .build();
+
+    let os_title = Label::builder()
+        .label("ERMETE OS")
+        .css_classes(["greeter-topbar-title"])
+        .build();
+
+    let spacer = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .hexpand(true)
+        .build();
+
+    let status_pill = Label::builder()
+        .label("󰤨   󰁹   IT")
+        .css_classes(["greeter-status-pill"])
+        .build();
+
+    topbar.append(&os_title);
+    topbar.append(&spacer);
+    topbar.append(&status_pill);
+
+    // Zone 2: Center Clock + Card
+    let center_box = Box::builder()
         .orientation(Orientation::Vertical)
         .valign(Align::Center)
         .halign(Align::Center)
-        .spacing(12)
+        .hexpand(true)
+        .vexpand(true)
+        .spacing(24)
+        .build();
+
+    let clock_box = Box::builder()
+        .orientation(Orientation::Vertical)
+        .halign(Align::Center)
+        .spacing(4)
+        .build();
+
+    let time_label = Label::builder()
+        .css_classes(["greeter-clock-time"])
+        .build();
+
+    let date_label = Label::builder()
+        .css_classes(["greeter-clock-date"])
+        .build();
+
+    let now = chrono::Local::now();
+    time_label.set_text(&now.format("%H:%M").to_string());
+    date_label.set_text(&format_italian_date(&now));
+
+    let time_label_clone = time_label.clone();
+    let date_label_clone = date_label.clone();
+    glib::timeout_add_seconds_local(1, move || {
+        let now = chrono::Local::now();
+        time_label_clone.set_text(&now.format("%H:%M").to_string());
+        date_label_clone.set_text(&format_italian_date(&now));
+        glib::ControlFlow::Continue
+    });
+
+    clock_box.append(&time_label);
+    clock_box.append(&date_label);
+
+    let card_box = Box::builder()
+        .orientation(Orientation::Vertical)
+        .halign(Align::Center)
         .css_classes(["greeter-card"])
         .build();
-        
-    let os_label = Label::builder()
-        .label("ERMETE OS")
-        .css_classes(["greeter-os-title"])
+
+    let avatar_label = Label::builder()
+        .label("")
+        .halign(Align::Center)
+        .css_classes(["greeter-avatar"])
         .build();
 
     let user_label = Label::builder()
         .label("Ermete")
+        .halign(Align::Center)
         .css_classes(["greeter-user-name"])
         .build();
-    
+
+    let badge_label = Label::builder()
+        .label("WAYLAND • NIRI")
+        .halign(Align::Center)
+        .css_classes(["greeter-badge"])
+        .build();
+
     let password_entry = Entry::builder()
         .placeholder_text("Password di accesso...")
         .visibility(false)
@@ -187,7 +351,7 @@ pub fn build_ui(app: &Application) {
         .visible(false)
         .wrap(true)
         .build();
-        
+
     let error_label_clone = error_label.clone();
     password_entry.connect_changed(move |_| {
         error_label_clone.set_visible(false);
@@ -198,14 +362,14 @@ pub fn build_ui(app: &Application) {
         let password = entry.text().to_string();
         entry.set_sensitive(false);
         error_label_activate.set_visible(false);
-        
+
         let (sender, receiver) = glib::MainContext::channel::<Result<(), String>>(glib::Priority::DEFAULT);
-        
+
         std::thread::spawn(move || {
             let res = authenticate(&password);
             let _ = sender.send(res);
         });
-        
+
         let entry_clone = entry.clone();
         let err_clone = error_label_activate.clone();
         receiver.attach(None, move |res| {
@@ -226,11 +390,56 @@ pub fn build_ui(app: &Application) {
         });
     });
 
-    vbox.append(&os_label);
-    vbox.append(&user_label);
-    vbox.append(&password_entry);
-    vbox.append(&error_label);
-    
-    window.set_child(Some(&vbox));
+    card_box.append(&avatar_label);
+    card_box.append(&user_label);
+    card_box.append(&badge_label);
+    card_box.append(&password_entry);
+    card_box.append(&error_label);
+
+    center_box.append(&clock_box);
+    center_box.append(&card_box);
+
+    // Zone 3: Bottom Power Buttons
+    let bottom_bar = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .halign(Align::Center)
+        .margin_bottom(32)
+        .spacing(16)
+        .build();
+
+    let suspend_btn = Button::builder()
+        .label("Sospendi")
+        .css_classes(["greeter-power-btn"])
+        .build();
+    suspend_btn.connect_clicked(|_| {
+        let _ = std::process::Command::new("systemctl").arg("suspend").spawn();
+    });
+
+    let reboot_btn = Button::builder()
+        .label("Riavvia")
+        .css_classes(["greeter-power-btn"])
+        .build();
+    reboot_btn.connect_clicked(|_| {
+        let _ = std::process::Command::new("systemctl").arg("reboot").spawn();
+    });
+
+    let poweroff_btn = Button::builder()
+        .label("Spegni")
+        .css_classes(["greeter-power-btn"])
+        .build();
+    poweroff_btn.connect_clicked(|_| {
+        let _ = std::process::Command::new("systemctl").arg("poweroff").spawn();
+    });
+
+    bottom_bar.append(&suspend_btn);
+    bottom_bar.append(&reboot_btn);
+    bottom_bar.append(&poweroff_btn);
+
+    root_vbox.append(&topbar);
+    root_vbox.append(&center_box);
+    root_vbox.append(&bottom_bar);
+
+    window.set_child(Some(&root_vbox));
     window.present();
 }
+

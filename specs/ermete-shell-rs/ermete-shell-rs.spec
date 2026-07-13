@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-shell-rs
 Version:        1.0.0
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Ermete OS Native Rust GTK4 Shell
 
 License:        MIT
@@ -27,6 +27,9 @@ install -m 0755 target/release/ermete-shell-rs %{buildroot}%{_bindir}/ermete-she
 %{_bindir}/ermete-shell-rs
 
 %changelog
+* Mon Jul 13 2026 Ermete Forge <forge@ermete.os> - 1.0.0-7
+- Redesign greeter login UI to BigTech macOS Lock Screen & Glassmorphism style with live clock and power actions
+
 * Mon Jul 13 2026 Ermete Forge <forge@ermete.os> - 1.0.0-6
 - Fix greeter PAM authentication username resolution and add premium GTK4 CSS design
 
