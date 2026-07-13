@@ -2,6 +2,33 @@ use gtk4::prelude::*;
 use gtk4::{Box, ComboBoxText, Label, Orientation, Scale};
 use std::process::Command;
 
+fn get_niri_outputs() -> Vec<String> {
+    let mut outputs = Vec::new();
+    if let Ok(output) = Command::new("niri").args(["msg", "-j", "outputs"]).output() {
+        if output.status.success() {
+            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
+                if let Some(map) = json.as_object() {
+                    for key in map.keys() {
+                        outputs.push(key.clone());
+                    }
+                } else if let Some(arr) = json.as_array() {
+                    for item in arr {
+                        if let Some(name) = item.get("name").and_then(|n| n.as_str()) {
+                            outputs.push(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    outputs.sort();
+    outputs.dedup();
+    if outputs.is_empty() {
+        outputs.push("eDP-1".to_string());
+    }
+    outputs
+}
+
 pub fn build_page() -> Box {
     let container = Box::new(Orientation::Vertical, 16);
     container.set_margin_top(24);
@@ -17,26 +44,28 @@ pub fn build_page() -> Box {
 
     container.append(&title);
 
-    let res_box = Box::new(Orientation::Horizontal, 12);
-    let res_label = Label::builder()
-        .label("Risoluzione:")
+    let monitor_box = Box::new(Orientation::Horizontal, 12);
+    let monitor_label = Label::builder()
+        .label("Schermo:")
         .halign(gtk4::Align::Start)
         .build();
-    let res_combo = ComboBoxText::new();
-    res_combo.append_text("1920x1080");
-    res_combo.append_text("2560x1440");
-    res_combo.append_text("3840x2160");
-    res_combo.set_active(Some(0));
+    let monitor_combo = ComboBoxText::new();
 
-    res_combo.connect_changed(|combo| {
+    let outputs = get_niri_outputs();
+    for output in &outputs {
+        monitor_combo.append_text(output);
+    }
+    monitor_combo.set_active(Some(0));
+
+    monitor_combo.connect_changed(|combo| {
         if let Some(text) = combo.active_text() {
-            println!("Risoluzione selezionata: {}", text);
+            println!("Schermo selezionato: {}", text);
         }
     });
 
-    res_box.append(&res_label);
-    res_box.append(&res_combo);
-    container.append(&res_box);
+    monitor_box.append(&monitor_label);
+    monitor_box.append(&monitor_combo);
+    container.append(&monitor_box);
 
     let scale_box = Box::new(Orientation::Vertical, 8);
     let scale_label = Label::builder()
@@ -48,16 +77,25 @@ pub fn build_page() -> Box {
     scale.set_value(1.0);
     scale.set_draw_value(true);
 
-    scale.connect_value_changed(|s| {
+    let combo_clone = monitor_combo.clone();
+    scale.connect_value_changed(move |s| {
+        let selected_output = combo_clone
+            .active_text()
+            .map(|t| t.to_string())
+            .unwrap_or_else(|| "eDP-1".to_string());
+
         let val = s.value();
         let val_str = format!("{:.1}", val);
         match Command::new("niri")
-            .args(["msg", "output", "eDP-1", "scale", &val_str])
+            .args(["msg", "output", &selected_output, "scale", &val_str])
             .spawn()
         {
             Ok(mut child) => {
                 let _ = child.wait();
-                println!("Impostata scala niri a {}", val_str);
+                println!(
+                    "Impostata scala niri per lo schermo {} a {}",
+                    selected_output, val_str
+                );
             }
             Err(e) => eprintln!("Errore nell'esecuzione di niri: {}", e),
         }
@@ -69,3 +107,4 @@ pub fn build_page() -> Box {
 
     container
 }
+
