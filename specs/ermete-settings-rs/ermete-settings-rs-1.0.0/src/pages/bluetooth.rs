@@ -69,8 +69,7 @@ pub fn build_page() -> Box {
         }
     });
 
-    power_switch.connect_active_notify(|switch| {
-        let state = switch.is_active();
+    power_switch.connect_state_set(|_switch, state| {
         let ctx = gtk4::glib::MainContext::default();
         ctx.spawn_local(async move {
             match crate::get_connection().await {
@@ -87,6 +86,7 @@ pub fn build_page() -> Box {
                 Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
             }
         });
+        gtk4::glib::Propagation::Proceed
     });
 
     switch_box.append(&switch_label);

@@ -69,9 +69,21 @@ impl Network {
     }
 }
 
-#[derive(Default)]
 struct Bluetooth {
     power: bool,
+}
+
+impl Bluetooth {
+    fn new() -> Self {
+        let mut power = false;
+        if let Ok(output) = std::process::Command::new("bluetoothctl").arg("show").output() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if stdout.contains("Powered: yes") {
+                power = true;
+            }
+        }
+        Self { power }
+    }
 }
 
 #[zbus::dbus_interface(name = "os.ermete.Bedrock.Bluetooth")]
@@ -129,7 +141,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .name("os.ermete.Bedrock")?
         .serve_at("/os/ermete/Bedrock", Bedrock::default())?
         .serve_at("/os/ermete/Bedrock/Network", Network)?
-        .serve_at("/os/ermete/Bedrock/Bluetooth", Bluetooth::default())?
+        .serve_at("/os/ermete/Bedrock/Bluetooth", Bluetooth::new())?
         .build()
         .await?;
 

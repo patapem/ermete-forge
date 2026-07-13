@@ -145,14 +145,6 @@ fn build_ui(app: &Application) {
         list_box.select_row(Some(&row));
     }
 
-    list_box.connect_row_selected(move |_, row| {
-        if let Some(_row) = row {
-            // This is just a quick binding for the prototype
-            // The real logic should store the ID in the row
-            // We'll fix this properly soon!
-        }
-    });
-
     // Fix connection properly
     let stack_clone = stack.clone();
     
