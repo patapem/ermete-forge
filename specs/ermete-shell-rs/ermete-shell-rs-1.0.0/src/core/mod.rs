@@ -1,4 +1,5 @@
 pub mod dock_config;
+pub mod dock_data;
 pub mod network;
 pub mod mpris;
 pub mod niri_state;
