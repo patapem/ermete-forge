@@ -145,24 +145,24 @@ pub fn build_ui(app: &Application) -> ApplicationWindow {
     trigger_win.add_controller(motion_trigger);
     trigger_win.present();
 
+    let state = Rc::new(RefCell::new(DockState {
+        pinned: Vec::new(),
+        windows: Vec::new(),
+    }));
+
     let motion_dock = EventControllerMotion::new();
     let container_weak2 = container.downgrade();
+    let state_leave = state.clone();
     motion_dock.connect_leave(move |_| {
         // Auto-hide only when windows overlap bottom area
         if let Some(cont) = container_weak2.upgrade() {
-            let windows = crate::core::dock_watcher::fetch_current_niri_windows();
-            let should_hide = windows.iter().any(|w| w.is_focused);
+            let should_hide = state_leave.borrow().windows.iter().any(|w| w.is_focused);
             if should_hide {
                 cont.add_css_class("dock-hidden");
             }
         }
     });
     container.add_controller(motion_dock);
-
-    let state = Rc::new(RefCell::new(DockState {
-        pinned: Vec::new(),
-        windows: Vec::new(),
-    }));
 
     let (tx_win, rx_win) = glib::MainContext::channel::<Vec<NiriWindowInfo>>(glib::Priority::DEFAULT);
     let (tx_cfg, rx_cfg) = glib::MainContext::channel::<DockConfig>(glib::Priority::DEFAULT);
@@ -172,16 +172,20 @@ pub fn build_ui(app: &Application) -> ApplicationWindow {
     let container_clone = container.clone();
     let state_clone = state.clone();
     rx_win.attach(None, move |windows| {
-        state_clone.borrow_mut().windows = windows;
-        refresh_dock_ui(&container_clone, &state_clone.borrow());
+        if state_clone.borrow().windows != windows {
+            state_clone.borrow_mut().windows = windows;
+            refresh_dock_ui(&container_clone, &state_clone.borrow());
+        }
         glib::ControlFlow::Continue
     });
 
     let container_clone2 = container.clone();
     let state_clone2 = state.clone();
     rx_cfg.attach(None, move |cfg| {
-        state_clone2.borrow_mut().pinned = cfg.pinned;
-        refresh_dock_ui(&container_clone2, &state_clone2.borrow());
+        if state_clone2.borrow().pinned != cfg.pinned {
+            state_clone2.borrow_mut().pinned = cfg.pinned;
+            refresh_dock_ui(&container_clone2, &state_clone2.borrow());
+        }
         glib::ControlFlow::Continue
     });
 
@@ -298,6 +302,7 @@ fn show_window_picker_popover(anchor: &Button, item: &DockItem) {
         .css_classes(["dock-popover"])
         .build();
     popover.set_parent(anchor);
+    popover.connect_closed(|p| p.unparent());
 
     let box_inner = GtkBox::new(Orientation::Vertical, 4);
     for (i, title) in item.window_titles.iter().enumerate() {
@@ -325,6 +330,7 @@ fn show_dock_context_menu(anchor: &Button, item: &DockItem) {
         .css_classes(["dock-popover"])
         .build();
     popover.set_parent(anchor);
+    popover.connect_closed(|p| p.unparent());
 
     let box_inner = GtkBox::new(Orientation::Vertical, 4);
 

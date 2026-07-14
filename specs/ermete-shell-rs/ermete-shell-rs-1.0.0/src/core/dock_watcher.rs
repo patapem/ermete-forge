@@ -26,21 +26,32 @@ pub fn spawn_dock_watchers(
     // 2. Watch Niri event stream
     let win_sender = sender_windows.clone();
     std::thread::spawn(move || {
-        let mut child = Command::new("niri")
-            .args(["msg", "-j", "event-stream"])
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .expect("Failed to spawn niri event stream for dock");
-
-        if let Some(stdout) = child.stdout.take() {
-            let reader = std::io::BufReader::new(stdout);
-            for line in reader.lines() {
-                if let Ok(line_str) = line {
-                    if line_str.contains("Window") || line_str.contains("Workspace") {
-                        let _ = win_sender.send(fetch_current_niri_windows());
+        loop {
+            match Command::new("niri")
+                .args(["msg", "-j", "event-stream"])
+                .stdout(std::process::Stdio::piped())
+                .spawn()
+            {
+                Ok(mut child) => {
+                    if let Some(stdout) = child.stdout.take() {
+                        let reader = std::io::BufReader::new(stdout);
+                        for line in reader.lines() {
+                            if let Ok(line_str) = line {
+                                if line_str.contains("Window") || line_str.contains("Workspace") {
+                                    let _ = win_sender.send(fetch_current_niri_windows());
+                                }
+                            } else {
+                                break;
+                            }
+                        }
                     }
+                    let _ = child.wait();
+                }
+                Err(e) => {
+                    eprintln!("Warning: niri event-stream disconnected or failed to start: {}. Retrying in 2s...", e);
                 }
             }
+            std::thread::sleep(std::time::Duration::from_secs(2));
         }
     });
 
@@ -59,7 +70,9 @@ pub fn spawn_dock_watchers(
 
         while let Ok(event) = rx.recv() {
             if let Ok(ev) = event {
-                if ev.kind.is_modify() || ev.kind.is_create() {
+                if (ev.kind.is_modify() || ev.kind.is_create())
+                    && ev.paths.iter().any(|p| p.file_name() == path.file_name())
+                {
                     let _ = sender_config.send(load_dock_config());
                 }
             }
