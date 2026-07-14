@@ -50,6 +50,16 @@ fn main() -> glib::ExitCode {
         return app.run_with_args(&Vec::<String>::new());
     }
 
+    if args.dock {
+        let app = Application::builder()
+            .application_id("os.ermete.DockStandalone")
+            .build();
+        app.connect_activate(|app| {
+            ui::dock::build_ui(app);
+        });
+        return app.run_with_args(&Vec::<String>::new());
+    }
+
     let app = Application::builder()
         .application_id(APP_ID)
         .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
@@ -59,6 +69,7 @@ fn main() -> glib::ExitCode {
         static ACTIVATED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
         if !ACTIVATED.swap(true, std::sync::atomic::Ordering::SeqCst) {
             ui::topbar::build_ui(app);
+            ui::dock::build_ui(app);
             crate::ui::osd::spawn_osd(app);
         }
     });

@@ -872,6 +872,7 @@ pub fn handle_command(app: &Application, arg: &str) {
         "start-menu" | "menu" => toggle_or_open_popup("launcher", || show_start_menu_popover(app)),
         "powermenu" => toggle_or_open_popup("powermenu", || crate::ui::powermenu::show_powermenu_modal(app)),
         "clipboard" => toggle_or_open_popup("clipboard", || crate::ui::clipboard::show_clipboard_modal(app)),
+        "dock" => crate::ui::dock::toggle_dock_visibility(),
         _ => {}
     }
 }
