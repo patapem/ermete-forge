@@ -78,10 +78,11 @@ pub fn is_pinned(desktop_id: &str) -> bool {
 }
 
 #[cfg(test)]
+pub(crate) static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(test)]
 mod tests {
     use super::*;
-
-    static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     struct HomeGuard {
         original: Option<String>,
