@@ -180,6 +180,8 @@ pub fn build_page() -> Box {
                                                             } else {
                                                                 println!("Successfully connected to {}", proxy.path());
                                                             }
+                                                        } else {
+                                                            eprintln!("Error building proxy for Device1");
                                                         }
                                                     }
                                                     Err(e) => eprintln!("Error connecting to DBus: {:?}", e),

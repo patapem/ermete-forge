@@ -160,63 +160,86 @@ pub fn build_page() -> GtkBox {
     flatpak_box.append(&chk_home);
     flatpak_box.append(&chk_devices);
 
-    let apply_btn = Button::builder()
-        .label("Applica Override Permessi Sandbox")
-        .halign(Align::Start)
-        .css_classes(vec!["suggested-action"])
-        .build();
-    flatpak_box.append(&apply_btn);
-
     let flatpak_status = Label::builder().label("").halign(Align::Start).build();
     flatpak_box.append(&flatpak_status);
 
-    let status_clone = flatpak_status.clone();
-    apply_btn.connect_clicked(move |_| {
-        let app = app_id_entry.text().to_string();
-        if app.is_empty() {
-            status_clone.set_text("⚠️ Inserisci un App ID Flatpak valido.");
-            return;
-        }
-        let w = chk_wayland.is_active();
-        let a = chk_audio.is_active();
-        let n = chk_network.is_active();
-        let h = chk_home.is_active();
-        let d = chk_devices.is_active();
-        
-        let (table, id, perms) = generate_permission_store_payload(&app, w, a, n, h, d);
-        
-        let status_for_async = status_clone.clone();
-        let ctx = gtk4::glib::MainContext::default();
-        ctx.spawn_local(async move {
-            match crate::get_connection().await {
-                Ok(conn) => {
-                    match PermissionStoreProxy::new(&conn).await {
-                        Ok(proxy) => {
-                            let mut borrowed_perms = std::collections::HashMap::new();
-                            for (k, v) in &perms {
-                                borrowed_perms.insert(k.as_str(), v.iter().map(|s| s.as_str()).collect());
+    let apply_permissions = std::rc::Rc::new({
+        let app_id_entry = app_id_entry.clone();
+        let chk_wayland = chk_wayland.clone();
+        let chk_audio = chk_audio.clone();
+        let chk_network = chk_network.clone();
+        let chk_home = chk_home.clone();
+        let chk_devices = chk_devices.clone();
+        let status_clone = flatpak_status.clone();
+
+        move || {
+            let app = app_id_entry.text().to_string();
+            if app.is_empty() {
+                status_clone.set_text("⚠️ Inserisci un App ID Flatpak valido.");
+                return;
+            }
+            let w = chk_wayland.is_active();
+            let a = chk_audio.is_active();
+            let n = chk_network.is_active();
+            let h = chk_home.is_active();
+            let d = chk_devices.is_active();
+            
+            let (table, id, perms) = generate_permission_store_payload(&app, w, a, n, h, d);
+            
+            let status_for_async = status_clone.clone();
+            let ctx = gtk4::glib::MainContext::default();
+            ctx.spawn_local(async move {
+                match crate::get_connection().await {
+                    Ok(conn) => {
+                        match PermissionStoreProxy::new(&conn).await {
+                            Ok(proxy) => {
+                                let mut borrowed_perms = std::collections::HashMap::new();
+                                for (k, v) in &perms {
+                                    borrowed_perms.insert(k.as_str(), v.iter().map(|s| s.as_str()).collect());
+                                }
+                                
+                                if let Err(e) = proxy.set_permission(&table, true, &id, borrowed_perms, zbus::zvariant::Value::from(0i32)).await {
+                                    eprintln!("Errore DBus PermissionStore: {:?}", e);
+                                    status_for_async.set_text("⚠️ Errore salvataggio permessi");
+                                } else {
+                                    status_for_async.set_text(&format!("✅ Permessi applicati su Flatpak PermissionStore per '{}'", id));
+                                }
                             }
-                            
-                            if let Err(e) = proxy.set_permission(&table, true, &id, borrowed_perms, zbus::zvariant::Value::from(0i32)).await {
-                                eprintln!("Errore DBus PermissionStore: {:?}", e);
-                                status_for_async.set_text("⚠️ Errore salvataggio permessi");
-                            } else {
-                                status_for_async.set_text(&format!("✅ Permessi applicati su Flatpak PermissionStore per '{}'", id));
+                            Err(e) => {
+                                eprintln!("Errore creazione proxy PermissionStore: {:?}", e);
+                                status_for_async.set_text("⚠️ Errore creazione proxy");
                             }
-                        }
-                        Err(e) => {
-                            eprintln!("Errore creazione proxy PermissionStore: {:?}", e);
-                            status_for_async.set_text("⚠️ Errore creazione proxy");
                         }
                     }
+                    Err(e) => {
+                        eprintln!("Errore connessione DBus: {:?}", e);
+                        status_for_async.set_text("⚠️ Errore connessione DBus");
+                    }
                 }
-                Err(e) => {
-                    eprintln!("Errore connessione DBus: {:?}", e);
-                    status_for_async.set_text("⚠️ Errore connessione DBus");
-                }
-            }
-        });
+            });
+        }
     });
+
+    {
+        let apply = apply_permissions.clone();
+        chk_wayland.connect_toggled(move |_| apply());
+    }
+    {
+        let apply = apply_permissions.clone();
+        chk_audio.connect_toggled(move |_| apply());
+    }
+    {
+        let apply = apply_permissions.clone();
+        chk_network.connect_toggled(move |_| apply());
+    }
+    {
+        let apply = apply_permissions.clone();
+        chk_home.connect_toggled(move |_| apply());
+    }
+    {
+        let apply = apply_permissions.clone();
+        chk_devices.connect_toggled(move |_| apply());
+    }
 
     container.append(&flatpak_box);
 

@@ -145,10 +145,16 @@ pub fn build_page() -> gtk4::Box {
                             Ok(conn) => {
                                 let uid = unsafe { libc::getuid() };
                                 let path = format!("/org/freedesktop/Accounts/User{}", uid);
-                                if let Ok(proxy) = AccountsUserProxy::builder(&conn).path(path).unwrap().build().await {
+                                let Ok(builder) = AccountsUserProxy::builder(&conn).path(path.as_str()) else {
+                                    eprintln!("Invalid DBus object path for user: {}", path);
+                                    return;
+                                };
+                                if let Ok(proxy) = builder.build().await {
                                     if let Err(e) = proxy.set_password(&new_password, "hint").await {
                                         eprintln!("Error setting password on AccountService: {:?}", e);
                                     }
+                                } else {
+                                    eprintln!("Error building proxy for AccountService");
                                 }
                                 if let Ok(bedrock) = BedrockProxy::new(&conn).await {
                                     if let Err(e) = bedrock.enroll_keyring_secret(&new_password).await {
@@ -156,6 +162,8 @@ pub fn build_page() -> gtk4::Box {
                                     } else {
                                         println!("Successfully changed password and enrolled secret.");
                                     }
+                                } else {
+                                    eprintln!("Error building proxy for Bedrock");
                                 }
                             }
                             Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
