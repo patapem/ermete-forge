@@ -154,6 +154,17 @@ pub trait BedrockAudio {
     fn set_source_volume(&self, val: f64) -> zbus::Result<()>;
 }
 
+#[proxy(
+    interface = "os.ermete.Bedrock.SecretEnroller",
+    default_service = "os.ermete.Bedrock",
+    default_path = "/os/ermete/Bedrock/SecretEnroller"
+)]
+pub trait SecretEnroller {
+    fn enroll_secret(&self, username: &str, password: &str) -> zbus::Result<String>;
+    fn decrypt_secret(&self, username: &str) -> zbus::Result<String>;
+    fn unlock_keyring(&self, username: &str, secret: &str) -> zbus::Result<bool>;
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct WifiNetworkInfo {
     pub ssid: String,

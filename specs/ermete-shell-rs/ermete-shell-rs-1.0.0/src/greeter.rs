@@ -285,43 +285,19 @@ fn resolve_target_username() -> String {
     discover_target_user().username
 }
 
-fn unlock_keyring_automatic(password: &str, username: &str) {
+pub fn unlock_keyring_automatic(password: &str, username: &str) {
     println!("[Ermete Greeter] Keyring unlock requested for user: {}", username);
-    if !password.is_empty() {
-        if let Ok(mut child) = std::process::Command::new("gnome-keyring-daemon")
-            .arg("--unlock")
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-        {
-            if let Some(mut stdin) = child.stdin.take() {
-                let _ = std::io::Write::write_all(&mut stdin, password.as_bytes());
-            }
-            let _ = child.wait();
-        }
-    } else {
-        // Biometric / FIDO2 login without password: try decrypting TPM 2.0 / cryptenroll sealed token
-        let tpm_sealed_path = format!("/var/home/{}/.local/share/keyrings/tpm2.sealed", username);
-        if std::path::Path::new(&tpm_sealed_path).exists() {
-            if let Ok(output) = std::process::Command::new("systemd-creds")
-                .args(&["decrypt", &tpm_sealed_path, "-"])
-                .output()
-            {
-                if output.status.success() {
-                    if let Ok(mut child) = std::process::Command::new("gnome-keyring-daemon")
-                        .arg("--unlock")
-                        .stdin(std::process::Stdio::piped())
-                        .stdout(std::process::Stdio::null())
-                        .stderr(std::process::Stdio::null())
-                        .spawn()
-                    {
-                        if let Some(mut stdin) = child.stdin.take() {
-                            let _ = std::io::Write::write_all(&mut stdin, &output.stdout);
-                        }
-                        let _ = child.wait();
-                    }
+    if let Ok(conn) = zbus::blocking::Connection::session() {
+        if let Ok(proxy) = crate::core::system_proxies::SecretEnrollerProxyBlocking::new(&conn) {
+            if password.is_empty() {
+                // Biometric / FIDO2 login without password: try decrypting TPM 2.0 sealed token
+                if let Ok(decrypted_secret) = proxy.decrypt_secret(username) {
+                    let _ = proxy.unlock_keyring(username, &decrypted_secret);
                 }
+            } else {
+                // Interactive login/enrollment
+                let _ = proxy.enroll_secret(username, password);
+                let _ = proxy.unlock_keyring(username, password);
             }
         }
     }
@@ -733,5 +709,20 @@ pub fn build_ui(app: &Application, is_lockscreen: bool) {
 
     window.set_child(Some(&root_vbox));
     window.present();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_unlock_keyring_automatic_empty_password() {
+        unlock_keyring_automatic("", "testuser");
+    }
+
+    #[test]
+    fn test_unlock_keyring_automatic_with_password() {
+        unlock_keyring_automatic("secret123", "testuser");
+    }
 }
 
