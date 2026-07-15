@@ -56,15 +56,17 @@ pub fn show_toast_popup(app: &Application, notif: &NotificationData) {
         let entry_clone = entry.clone();
         let toast_clone = toast.clone();
         let app_name = notif.app_name.clone();
-        let send_action = move |_| {
+        let send_action = std::rc::Rc::new(move || {
             let text = entry_clone.text().to_string();
             if !text.is_empty() {
                 println!("[Ermete Notifications] Inline reply sent to {}: {}", app_name, text);
                 toast_clone.close();
             }
-        };
-        send_btn.connect_clicked(send_action.clone());
-        entry.connect_activate(move |_| send_action(()));
+        });
+        let act_btn = send_action.clone();
+        send_btn.connect_clicked(move |_| act_btn());
+        let act_entry = send_action.clone();
+        entry.connect_activate(move |_| act_entry());
 
         reply_box.append(&entry);
         reply_box.append(&send_btn);
@@ -286,15 +288,17 @@ pub fn show_notification_center(app: &Application) {
                         let entry_clone = entry.clone();
                         let app_name_rep = item.app_name.clone();
                         let sb_close = sidebar.clone();
-                        let send_action = move |_| {
+                        let send_action = std::rc::Rc::new(move || {
                             let text = entry_clone.text().to_string();
                             if !text.is_empty() {
                                 println!("[Ermete Notifications] Inline reply sent to {}: {}", app_name_rep, text);
                                 sb_close.close();
                             }
-                        };
-                        send_btn.connect_clicked(send_action.clone());
-                        entry.connect_activate(move |_| send_action(()));
+                        });
+                        let act_btn = send_action.clone();
+                        send_btn.connect_clicked(move |_| act_btn());
+                        let act_entry = send_action.clone();
+                        entry.connect_activate(move |_| act_entry());
                         reply_box.append(&entry);
                         reply_box.append(&send_btn);
                         item_box.append(&reply_box);
