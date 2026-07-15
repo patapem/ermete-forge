@@ -162,16 +162,18 @@ pub fn build_page() -> gtk4::Box {
                                 } else {
                                     eprintln!("Error building proxy for AccountService");
                                 }
-                                if let Ok(bedrock) = BedrockProxy::new(&conn).await {
-                                    if let Err(e) = bedrock.enroll_keyring_secret(&new_password).await {
-                                        eprintln!("Error enrolling secret: {:?}", e);
-                                        success = false;
+                                if success {
+                                    if let Ok(bedrock) = BedrockProxy::new(&conn).await {
+                                        if let Err(e) = bedrock.enroll_keyring_secret(&new_password).await {
+                                            eprintln!("Error enrolling secret: {:?}", e);
+                                            success = false;
+                                        } else {
+                                            println!("Successfully changed password and enrolled secret.");
+                                        }
                                     } else {
-                                        println!("Successfully changed password and enrolled secret.");
+                                        eprintln!("Error building proxy for Bedrock");
+                                        success = false;
                                     }
-                                } else {
-                                    eprintln!("Error building proxy for Bedrock");
-                                    success = false;
                                 }
                             }
                             Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
@@ -258,12 +260,10 @@ mod tests {
         let ctx = gtk4::glib::MainContext::default();
         ctx.block_on(async {
             let conn = zbus::Connection::system().await.expect("Failed to connect to dbus");
-            if let Ok(proxy) = AccountsUserProxy::builder(&conn).path("/org/freedesktop/Accounts/User1000").unwrap().build().await {
-                assert_eq!(proxy.inner().interface().as_str(), "org.freedesktop.Accounts.User");
-            }
-            if let Ok(proxy) = BedrockProxy::builder(&conn).build().await {
-                assert_eq!(proxy.inner().interface().as_str(), "org.ermete.Bedrock");
-            }
+            let proxy1 = AccountsUserProxy::builder(&conn).path("/org/freedesktop/Accounts/User1000").unwrap().cache_properties(zbus::CacheProperties::No).build().await.unwrap();
+            assert_eq!(proxy1.inner().interface().as_str(), "org.freedesktop.Accounts.User");
+            let proxy2 = BedrockProxy::builder(&conn).cache_properties(zbus::CacheProperties::No).build().await.unwrap();
+            assert_eq!(proxy2.inner().interface().as_str(), "org.ermete.Bedrock");
         });
     }
 }

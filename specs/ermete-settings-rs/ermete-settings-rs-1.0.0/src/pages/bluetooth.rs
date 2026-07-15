@@ -249,12 +249,10 @@ mod tests {
         let ctx = gtk4::glib::MainContext::default();
         ctx.block_on(async {
             let conn = zbus::Connection::system().await.expect("Failed to connect to dbus");
-            if let Ok(proxy) = BluetoothProxy::builder(&conn).build().await {
-                assert_eq!(proxy.inner().interface().as_str(), "os.ermete.Bedrock.Bluetooth");
-            }
-            if let Ok(proxy) = Device1Proxy::builder(&conn).path("/org/bluez/hci0/dev_00_00_00_00_00_00").unwrap().build().await {
-                assert_eq!(proxy.inner().interface().as_str(), "org.bluez.Device1");
-            }
+            let proxy1 = BluetoothProxy::builder(&conn).cache_properties(zbus::CacheProperties::No).build().await.unwrap();
+            assert_eq!(proxy1.inner().interface().as_str(), "os.ermete.Bedrock.Bluetooth");
+            let proxy2 = Device1Proxy::builder(&conn).path("/org/bluez/hci0/dev_00_00_00_00_00_00").unwrap().cache_properties(zbus::CacheProperties::No).build().await.unwrap();
+            assert_eq!(proxy2.inner().interface().as_str(), "org.bluez.Device1");
         });
     }
 }
