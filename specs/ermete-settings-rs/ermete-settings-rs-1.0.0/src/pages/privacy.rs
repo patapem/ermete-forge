@@ -240,6 +240,10 @@ pub fn build_page() -> GtkBox {
         let apply = apply_permissions.clone();
         chk_devices.connect_toggled(move |_| apply());
     }
+    {
+        let apply = apply_permissions.clone();
+        app_id_entry.connect_activate(move |_| apply());
+    }
 
     container.append(&flatpak_box);
 
