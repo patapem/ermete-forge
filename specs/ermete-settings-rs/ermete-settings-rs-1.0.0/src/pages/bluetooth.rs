@@ -62,7 +62,7 @@ pub fn build_page() -> Box {
     let power_switch_clone = power_switch.clone();
     let ctx = gtk4::glib::MainContext::default();
     ctx.spawn_local(async move {
-        match crate::get_connection().await {
+        match zbus::Connection::system().await {
             Ok(conn) => {
                 match BluetoothProxy::new(&conn).await {
                     Ok(proxy) => {
@@ -81,7 +81,7 @@ pub fn build_page() -> Box {
     power_switch.connect_state_set(|_switch, state| {
         let ctx = gtk4::glib::MainContext::default();
         ctx.spawn_local(async move {
-            match crate::get_connection().await {
+            match zbus::Connection::system().await {
                 Ok(conn) => {
                     match BluetoothProxy::new(&conn).await {
                         Ok(proxy) => {
@@ -130,7 +130,7 @@ pub fn build_page() -> Box {
         
         let ctx = gtk4::glib::MainContext::default();
         ctx.spawn_local(async move {
-            match crate::get_connection().await {
+            match zbus::Connection::system().await {
                 Ok(conn) => {
                     match BluetoothProxy::new(&conn).await {
                         Ok(proxy) => {
@@ -168,7 +168,7 @@ pub fn build_page() -> Box {
                                             let ctx = gtk4::glib::MainContext::default();
                                             ctx.spawn_local(async move {
                                                 let mut success = true;
-                                                match crate::get_connection().await {
+                                                match zbus::Connection::system().await {
                                                     Ok(conn) => {
                                                         let Ok(builder) = Device1Proxy::builder(&conn).path(path.as_str()) else {
                                                             eprintln!("Invalid DBus object path for device: {}", path);
@@ -179,17 +179,14 @@ pub fn build_page() -> Box {
                                                         if let Ok(proxy) = builder.build().await {
                                                             if let Err(e) = proxy.pair().await {
                                                                 eprintln!("Error pairing with {}: {:?}", proxy.path(), e);
-                                                                success = false;
                                                             } else {
                                                                 println!("Successfully paired with {}", proxy.path());
                                                             }
-                                                            if success {
-                                                                if let Err(e) = proxy.connect().await {
-                                                                    eprintln!("Error connecting to {}: {:?}", proxy.path(), e);
-                                                                    success = false;
-                                                                } else {
-                                                                    println!("Successfully connected to {}", proxy.path());
-                                                                }
+                                                            if let Err(e) = proxy.connect().await {
+                                                                eprintln!("Error connecting to {}: {:?}", proxy.path(), e);
+                                                                success = false;
+                                                            } else {
+                                                                println!("Successfully connected to {}", proxy.path());
                                                             }
                                                         } else {
                                                             eprintln!("Error building proxy for Device1");
@@ -251,13 +248,12 @@ mod tests {
     fn test_bluetooth_proxies_exist() {
         let ctx = gtk4::glib::MainContext::default();
         ctx.block_on(async {
-            if let Ok(conn) = zbus::Connection::session().await {
-                if let Ok(proxy) = BluetoothProxy::builder(&conn).build().await {
-                    assert_eq!(proxy.inner().interface().as_str(), "os.ermete.Bedrock.Bluetooth");
-                }
-                if let Ok(proxy) = Device1Proxy::builder(&conn).path("/org/bluez/hci0/dev_00_00_00_00_00_00").unwrap().build().await {
-                    assert_eq!(proxy.inner().interface().as_str(), "org.bluez.Device1");
-                }
+            let conn = zbus::Connection::system().await.expect("Failed to connect to dbus");
+            if let Ok(proxy) = BluetoothProxy::builder(&conn).build().await {
+                assert_eq!(proxy.inner().interface().as_str(), "os.ermete.Bedrock.Bluetooth");
+            }
+            if let Ok(proxy) = Device1Proxy::builder(&conn).path("/org/bluez/hci0/dev_00_00_00_00_00_00").unwrap().build().await {
+                assert_eq!(proxy.inner().interface().as_str(), "org.bluez.Device1");
             }
         });
     }

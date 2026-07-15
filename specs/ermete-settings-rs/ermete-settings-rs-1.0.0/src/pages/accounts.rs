@@ -144,7 +144,7 @@ pub fn build_page() -> gtk4::Box {
                     let ctx = gtk4::glib::MainContext::default();
                     ctx.spawn_local(async move {
                         let mut success = false;
-                        match crate::get_connection().await {
+                        match zbus::Connection::system().await {
                             Ok(conn) => {
                                 let uid = unsafe { libc::getuid() };
                                 let path = format!("/org/freedesktop/Accounts/User{}", uid);
@@ -257,13 +257,12 @@ mod tests {
     fn test_accounts_proxies_exist() {
         let ctx = gtk4::glib::MainContext::default();
         ctx.block_on(async {
-            if let Ok(conn) = zbus::Connection::session().await {
-                if let Ok(proxy) = AccountsUserProxy::builder(&conn).path("/org/freedesktop/Accounts/User1000").unwrap().build().await {
-                    assert_eq!(proxy.inner().interface().as_str(), "org.freedesktop.Accounts.User");
-                }
-                if let Ok(proxy) = BedrockProxy::builder(&conn).build().await {
-                    assert_eq!(proxy.inner().interface().as_str(), "org.ermete.Bedrock");
-                }
+            let conn = zbus::Connection::system().await.expect("Failed to connect to dbus");
+            if let Ok(proxy) = AccountsUserProxy::builder(&conn).path("/org/freedesktop/Accounts/User1000").unwrap().build().await {
+                assert_eq!(proxy.inner().interface().as_str(), "org.freedesktop.Accounts.User");
+            }
+            if let Ok(proxy) = BedrockProxy::builder(&conn).build().await {
+                assert_eq!(proxy.inner().interface().as_str(), "org.ermete.Bedrock");
             }
         });
     }
