@@ -1,7 +1,7 @@
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 use zbus::interface;
 
@@ -46,8 +46,8 @@ impl BackupServer {
         target_dir.push(&id);
 
         println!("[BackupDaemon] Creating Btrfs CoW snapshot of {} at {:?}", home, target_dir);
-        let status = Command::new("sudo")
-            .args(["btrfs", "subvolume", "snapshot", "-r", &home, target_dir.to_str().unwrap_or("")])
+        let status = Command::new("btrfs")
+            .args(["subvolume", "snapshot", "-r", &home, target_dir.to_str().unwrap_or("")])
             .status();
 
         if status.is_err() || !status.as_ref().unwrap().success() {
@@ -93,8 +93,8 @@ impl BackupServer {
         target_dir.push(id);
 
         println!("[BackupDaemon] Deleting Btrfs subvolume snapshot {:?}", target_dir);
-        let status = Command::new("sudo")
-            .args(["btrfs", "subvolume", "delete", target_dir.to_str().unwrap_or("")])
+        let status = Command::new("btrfs")
+            .args(["subvolume", "delete", target_dir.to_str().unwrap_or("")])
             .status();
 
         if status.is_err() || !status.as_ref().unwrap().success() {
@@ -107,7 +107,37 @@ impl BackupServer {
 
     async fn restore_snapshot(&self, id: &str) -> bool {
         println!("[BackupDaemon] Restoring home directory from snapshot ID: {}", id);
-        // On Btrfs, rollback is performed via rsync or subvolume swap
+        let manifest_path = self.get_manifest_path(id);
+        let mut target_dir = self.snapshot_dir.clone();
+        target_dir.push(id);
+
+        if !manifest_path.exists() && !target_dir.exists() {
+            println!("[BackupDaemon] Snapshot ID {} not found (no manifest or target dir).", id);
+            return false;
+        }
+
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/var/home/ermete".to_string());
+
+        let _del_status = Command::new("btrfs")
+            .args(["subvolume", "delete", &home])
+            .status();
+        let status = Command::new("btrfs")
+            .args(["subvolume", "snapshot", target_dir.to_str().unwrap_or(""), &home])
+            .status();
+
+        if status.is_err() || !status.as_ref().unwrap().success() {
+            println!("[BackupDaemon] Btrfs subvolume restore failed or unsupported. Using rsync fallback.");
+            let _ = Command::new("rsync")
+                .args([
+                    "-a",
+                    "--delete",
+                    "--exclude=.snapshots",
+                    &format!("{}/", target_dir.to_string_lossy()),
+                    &format!("{}/", home),
+                ])
+                .status();
+        }
+
         true
     }
 }
@@ -115,7 +145,7 @@ impl BackupServer {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let server = BackupServer::new();
-    let _conn = zbus::connection::Builder::session()?
+    let _conn = zbus::connection::Builder::system()?
         .name("org.ermete.Backup1")?
         .serve_at("/org/ermete/Backup1", server)?
         .build()
@@ -125,3 +155,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::future::pending::<()>().await;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_backup_server_init_and_manifest_path() {
+        let server = BackupServer::new();
+        let manifest_path = server.get_manifest_path("test-id");
+        assert!(manifest_path.to_string_lossy().ends_with(".snapshots/test-id.json") || manifest_path.to_string_lossy().ends_with(".snapshots\\test-id.json"));
+    }
+
+    #[tokio::test]
+    async fn test_snapshot_lifecycle_and_restore() {
+        let server = BackupServer::new();
+        let snap = server.create_snapshot("Test note").await;
+        assert!(snap.id.starts_with("snap-"));
+        assert_eq!(snap.note, "Test note");
+
+        let list = server.list_snapshots().await;
+        assert!(list.iter().any(|s| s.id == snap.id));
+
+        // Attempting to restore a non-existent snapshot must return false
+        let restore_non_existent = server.restore_snapshot("non_existent_snapshot_id_xyz").await;
+        assert!(!restore_non_existent, "Expected restore_snapshot on non-existent ID to return false");
+
+        // Clean up
+        let deleted = server.delete_snapshot(&snap.id).await;
+        assert!(deleted);
+    }
+}
+

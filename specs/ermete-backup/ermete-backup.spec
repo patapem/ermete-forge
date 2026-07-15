@@ -30,12 +30,16 @@ install -m 0644 systemd/ermete-backup.service %{buildroot}/usr/lib/systemd/user/
 install -m 0644 systemd/ermete-backup-hourly.timer %{buildroot}/usr/lib/systemd/user/ermete-backup-hourly.timer
 install -m 0644 systemd/ermete-backup-hourly.service %{buildroot}/usr/lib/systemd/user/ermete-backup-hourly.service
 
+mkdir -p %{buildroot}/usr/share/dbus-1/system.d
+install -m 0644 systemd/org.ermete.Backup1.conf %{buildroot}/usr/share/dbus-1/system.d/org.ermete.Backup1.conf
+
 %files
 %{_bindir}/ermete-backup-daemon
 %{_bindir}/ermete-backup-ui
 /usr/lib/systemd/user/ermete-backup.service
 /usr/lib/systemd/user/ermete-backup-hourly.timer
 /usr/lib/systemd/user/ermete-backup-hourly.service
+/usr/share/dbus-1/system.d/org.ermete.Backup1.conf
 
 %changelog
 * Wed Jul 15 2026 Ermete Forge <forge@ermete.os> - 1.0.0-1

@@ -1,4 +1,3 @@
-use glib::clone;
 use gtk4::prelude::*;
 use gtk4::{
     Align, Application, ApplicationWindow, Box as GtkBox, Button, CssProvider, Entry, Label,
@@ -8,13 +7,25 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, zbus::zvariant::Type)]
 struct SnapshotInfo {
     pub id: String,
     pub timestamp: String,
     pub note: String,
     pub path: String,
     pub size_estimate: String,
+}
+
+#[zbus::proxy(
+    interface = "org.ermete.Backup1",
+    default_service = "org.ermete.Backup1",
+    default_path = "/org/ermete/Backup1"
+)]
+trait Backup1 {
+    fn create_snapshot(&self, note: &str) -> zbus::Result<SnapshotInfo>;
+    fn list_snapshots(&self) -> zbus::Result<Vec<SnapshotInfo>>;
+    fn delete_snapshot(&self, id: &str) -> zbus::Result<bool>;
+    fn restore_snapshot(&self, id: &str) -> zbus::Result<bool>;
 }
 
 fn get_snapshots() -> Vec<SnapshotInfo> {
@@ -175,16 +186,11 @@ fn build_ui(app: &Application) {
         let note = entry_clone.text().to_string();
         let note = if note.is_empty() { "Snapshot manuale".to_string() } else { note };
         println!("[Time Machine] Requesting snapshot creation with note: {}", note);
-        let _ = std::process::Command::new("dbus-send")
-            .args([
-                "--session",
-                "--dest=org.ermete.Backup1",
-                "--type=method_call",
-                "/org/ermete/Backup1",
-                "org.ermete.Backup1.CreateSnapshot",
-                &format!("string:{}", note),
-            ])
-            .spawn();
+        if let Ok(conn) = zbus::blocking::Connection::system() {
+            if let Ok(proxy) = Backup1ProxyBlocking::new(&conn) {
+                let _ = proxy.create_snapshot(&note);
+            }
+        }
         win_clone.close();
     });
 
@@ -253,6 +259,11 @@ fn build_ui(app: &Application) {
             let snap_id = snap.id.clone();
             restore_btn.connect_clicked(move |_| {
                 println!("[Time Machine] Restoring snapshot {}", snap_id);
+                if let Ok(conn) = zbus::blocking::Connection::system() {
+                    if let Ok(proxy) = Backup1ProxyBlocking::new(&conn) {
+                        let _ = proxy.restore_snapshot(&snap_id);
+                    }
+                }
             });
 
             let delete_btn = Button::builder()
@@ -262,16 +273,11 @@ fn build_ui(app: &Application) {
             let snap_id_del = snap.id.clone();
             let w_clone = window.clone();
             delete_btn.connect_clicked(move |_| {
-                let _ = std::process::Command::new("dbus-send")
-                    .args([
-                        "--session",
-                        "--dest=org.ermete.Backup1",
-                        "--type=method_call",
-                        "/org/ermete/Backup1",
-                        "org.ermete.Backup1.DeleteSnapshot",
-                        &format!("string:{}", snap_id_del),
-                    ])
-                    .spawn();
+                if let Ok(conn) = zbus::blocking::Connection::system() {
+                    if let Ok(proxy) = Backup1ProxyBlocking::new(&conn) {
+                        let _ = proxy.delete_snapshot(&snap_id_del);
+                    }
+                }
                 w_clone.close();
             });
 
@@ -299,3 +305,31 @@ fn main() {
     app.connect_activate(build_ui);
     app.run();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_snapshot_info_serialization_and_parsing() {
+        let info = SnapshotInfo {
+            id: "snap-20260715-120000".to_string(),
+            timestamp: "15/07/2026 12:00:00".to_string(),
+            note: "Test note".to_string(),
+            path: "/var/home/ermete/.snapshots/snap-20260715-120000".to_string(),
+            size_estimate: "0 B".to_string(),
+        };
+        let json = serde_json::to_string(&info).expect("Failed to serialize SnapshotInfo");
+        let parsed: SnapshotInfo = serde_json::from_str(&json).expect("Failed to parse SnapshotInfo");
+        assert_eq!(parsed.id, info.id);
+        assert_eq!(parsed.note, info.note);
+    }
+
+    #[test]
+    fn test_proxy_interface_and_structure() {
+        assert_eq!(<Backup1Proxy as zbus::ProxyDefault>::DESTINATION, Some("org.ermete.Backup1"));
+        assert_eq!(<Backup1Proxy as zbus::ProxyDefault>::PATH, Some("/org/ermete/Backup1"));
+        assert_eq!(<Backup1Proxy as zbus::ProxyDefault>::INTERFACE, Some("org.ermete.Backup1"));
+    }
+}
+
