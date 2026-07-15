@@ -9,6 +9,15 @@ trait AccountsUser {
     fn set_password(&self, password: &str, hint: &str) -> zbus::Result<()>;
 }
 
+#[zbus::dbus_proxy(
+    interface = "org.ermete.Bedrock",
+    default_service = "org.ermete.Bedrock",
+    default_path = "/org/ermete/Bedrock"
+)]
+trait Bedrock {
+    fn enroll_keyring_secret(&self, secret: &str) -> zbus::Result<()>;
+}
+
 pub fn build_page() -> gtk4::Box {
     let container = GtkBox::builder()
         .orientation(Orientation::Vertical)
@@ -103,26 +112,61 @@ pub fn build_page() -> gtk4::Box {
         .valign(Align::Center)
         .build();
     
-    password_btn.connect_clicked(|_| {
-        let ctx = gtk4::glib::MainContext::default();
-        ctx.spawn_local(async move {
-            match crate::get_connection().await {
-                Ok(conn) => {
-                    let uid = unsafe { libc::getuid() };
-                    let path = format!("/org/freedesktop/Accounts/User{}", uid);
-                    if let Ok(proxy) = AccountsUserProxy::builder(&conn).path(path).unwrap().build().await {
-                        // In a real scenario, this would open a modal to get the new password.
-                        // For now we just call the DBus method and simulate the secret_enroller.
-                        if let Err(e) = proxy.set_password("dummy_new_password", "hint").await {
-                            eprintln!("Error setting password on AccountService: {:?}", e);
-                        } else {
-                            println!("SetPassword on AccountService and secret_enroller triggered successfully.");
+    password_btn.connect_clicked(move |btn| {
+        if let Some(window) = btn.root().and_downcast::<gtk4::Window>() {
+            let dialog = gtk4::Dialog::builder()
+                .title("Cambia Password")
+                .transient_for(&window)
+                .modal(true)
+                .build();
+
+            let content_area = dialog.content_area();
+            let entry = gtk4::PasswordEntry::builder()
+                .margin_top(12)
+                .margin_bottom(12)
+                .margin_start(12)
+                .margin_end(12)
+                .show_peek_icon(true)
+                .build();
+
+            content_area.append(&entry);
+            dialog.add_button("Annulla", gtk4::ResponseType::Cancel);
+            dialog.add_button("Cambia", gtk4::ResponseType::Ok);
+
+            entry.grab_focus();
+            let entry_clone = entry.clone();
+            
+            dialog.connect_response(move |dlg, response| {
+                if response == gtk4::ResponseType::Ok {
+                    let new_password = entry_clone.text().to_string();
+                    let ctx = gtk4::glib::MainContext::default();
+                    ctx.spawn_local(async move {
+                        match crate::get_connection().await {
+                            Ok(conn) => {
+                                let uid = unsafe { libc::getuid() };
+                                let path = format!("/org/freedesktop/Accounts/User{}", uid);
+                                if let Ok(proxy) = AccountsUserProxy::builder(&conn).path(path).unwrap().build().await {
+                                    if let Err(e) = proxy.set_password(&new_password, "hint").await {
+                                        eprintln!("Error setting password on AccountService: {:?}", e);
+                                    }
+                                }
+                                if let Ok(bedrock) = BedrockProxy::new(&conn).await {
+                                    if let Err(e) = bedrock.enroll_keyring_secret(&new_password).await {
+                                        eprintln!("Error enrolling secret: {:?}", e);
+                                    } else {
+                                        println!("Successfully changed password and enrolled secret.");
+                                    }
+                                }
+                            }
+                            Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
                         }
-                    }
+                    });
                 }
-                Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
-            }
-        });
+                dlg.close();
+            });
+
+            dialog.present();
+        }
     });
 
     password_row.append(&password_label_box);
@@ -180,4 +224,15 @@ fn get_username() -> String {
     std::env::var("USER")
         .or_else(|_| std::env::var("LOGNAME"))
         .unwrap_or_else(|_| "ermete".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_accounts_proxies_exist() {
+        let _ = AccountsUserProxy::builder;
+        let _ = BedrockProxy::builder;
+    }
 }

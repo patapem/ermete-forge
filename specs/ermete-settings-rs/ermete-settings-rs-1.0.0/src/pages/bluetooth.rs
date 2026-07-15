@@ -165,7 +165,11 @@ pub fn build_page() -> Box {
                                             ctx.spawn_local(async move {
                                                 match crate::get_connection().await {
                                                     Ok(conn) => {
-                                                        if let Ok(proxy) = Device1Proxy::builder(&conn).path(path).unwrap().build().await {
+                                                        let Ok(builder) = Device1Proxy::builder(&conn).path(path.as_str()) else {
+                                                            eprintln!("Invalid DBus object path for device: {}", path);
+                                                            return;
+                                                        };
+                                                        if let Ok(proxy) = builder.build().await {
                                                             if let Err(e) = proxy.pair().await {
                                                                 eprintln!("Error pairing with {}: {:?}", proxy.path(), e);
                                                             } else {
@@ -213,5 +217,16 @@ pub fn build_page() -> Box {
     container.append(&list_box);
 
     container
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bluetooth_proxies_exist() {
+        let _ = BluetoothProxy::builder;
+        let _ = Device1Proxy::builder;
+    }
 }
 
