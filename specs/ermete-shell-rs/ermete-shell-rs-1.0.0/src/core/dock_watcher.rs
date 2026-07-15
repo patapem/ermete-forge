@@ -15,16 +15,36 @@ pub fn fetch_current_niri_windows() -> Vec<NiriWindowInfo> {
     Vec::new()
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+struct NiriWorkspaceInfo {
+    id: u64,
+    is_active: bool,
+}
+
+pub fn fetch_current_active_workspace_id() -> Option<u64> {
+    if let Ok(output) = Command::new("niri").args(["msg", "-j", "workspaces"]).output() {
+        if output.status.success() {
+            if let Ok(workspaces) = serde_json::from_slice::<Vec<NiriWorkspaceInfo>>(&output.stdout) {
+                return workspaces.into_iter().find(|w| w.is_active).map(|w| w.id);
+            }
+        }
+    }
+    None
+}
+
 pub fn spawn_dock_watchers(
     sender_windows: glib::Sender<Vec<NiriWindowInfo>>,
     sender_config: glib::Sender<DockConfig>,
+    sender_workspace: glib::Sender<Option<u64>>,
 ) {
     // 1. Initial send
     let _ = sender_windows.send(fetch_current_niri_windows());
     let _ = sender_config.send(load_dock_config());
+    let _ = sender_workspace.send(fetch_current_active_workspace_id());
 
     // 2. Watch Niri event stream
     let win_sender = sender_windows.clone();
+    let ws_sender = sender_workspace.clone();
     std::thread::spawn(move || {
         loop {
             match Command::new("niri")
@@ -39,6 +59,7 @@ pub fn spawn_dock_watchers(
                             if let Ok(line_str) = line {
                                 if line_str.contains("Window") || line_str.contains("Workspace") {
                                     let _ = win_sender.send(fetch_current_niri_windows());
+                                    let _ = ws_sender.send(fetch_current_active_workspace_id());
                                 }
                             } else {
                                 break;
@@ -120,6 +141,7 @@ mod tests {
 
         let (win_tx, win_rx) = glib::MainContext::channel(glib::Priority::DEFAULT);
         let (cfg_tx, cfg_rx) = glib::MainContext::channel(glib::Priority::DEFAULT);
+        let (ws_tx, ws_rx) = glib::MainContext::channel(glib::Priority::DEFAULT);
 
         let win_received = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let cfg_received = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -136,7 +158,11 @@ mod tests {
             glib::ControlFlow::Continue
         });
 
-        spawn_dock_watchers(win_tx, cfg_tx);
+        ws_rx.attach(None, move |_ws| {
+            glib::ControlFlow::Continue
+        });
+
+        spawn_dock_watchers(win_tx, cfg_tx, ws_tx);
 
         let context = glib::MainContext::default();
         for _ in 0..20 {

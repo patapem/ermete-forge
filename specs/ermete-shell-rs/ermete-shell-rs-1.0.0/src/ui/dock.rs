@@ -87,6 +87,15 @@ window.dock-window {
 struct DockState {
     pinned: Vec<String>,
     windows: Vec<NiriWindowInfo>,
+    active_workspace_id: Option<u64>,
+}
+
+fn should_autohide(state: &DockState) -> bool {
+    if let Some(active_ws) = state.active_workspace_id {
+        state.windows.iter().any(|w| w.workspace_id == Some(active_ws))
+    } else {
+        state.windows.iter().any(|w| w.is_focused)
+    }
 }
 
 thread_local! {
@@ -161,9 +170,11 @@ pub fn build_ui(app: &Application) -> ApplicationWindow {
 
     let initial_config = load_dock_config();
     let initial_windows = fetch_current_niri_windows();
+    let initial_ws = crate::core::dock_watcher::fetch_current_active_workspace_id();
     let state = Rc::new(RefCell::new(DockState {
         pinned: initial_config.pinned,
         windows: initial_windows,
+        active_workspace_id: initial_ws,
     }));
 
     let motion_dock_enter = EventControllerMotion::new();
@@ -179,10 +190,8 @@ pub fn build_ui(app: &Application) -> ApplicationWindow {
     let container_weak2 = container.downgrade();
     let state_leave = state.clone();
     motion_dock.connect_leave(move |_| {
-        // Auto-hide only when windows overlap bottom area
         if let Some(cont) = container_weak2.upgrade() {
-            let should_hide = state_leave.borrow().windows.iter().any(|w| w.is_focused);
-            if should_hide {
+            if should_autohide(&state_leave.borrow()) {
                 cont.add_css_class("dock-hidden");
             }
         }
@@ -191,8 +200,9 @@ pub fn build_ui(app: &Application) -> ApplicationWindow {
 
     let (tx_win, rx_win) = glib::MainContext::channel::<Vec<NiriWindowInfo>>(glib::Priority::DEFAULT);
     let (tx_cfg, rx_cfg) = glib::MainContext::channel::<DockConfig>(glib::Priority::DEFAULT);
+    let (tx_ws, rx_ws) = glib::MainContext::channel::<Option<u64>>(glib::Priority::DEFAULT);
 
-    spawn_dock_watchers(tx_win, tx_cfg);
+    spawn_dock_watchers(tx_win, tx_cfg, tx_ws);
 
     let container_clone = container.clone();
     let state_clone = state.clone();
@@ -200,6 +210,9 @@ pub fn build_ui(app: &Application) -> ApplicationWindow {
         if state_clone.borrow().windows != windows {
             state_clone.borrow_mut().windows = windows;
             refresh_dock_ui(&container_clone, &state_clone.borrow());
+            if !should_autohide(&state_clone.borrow()) {
+                container_clone.remove_css_class("dock-hidden");
+            }
         }
         glib::ControlFlow::Continue
     });
@@ -214,7 +227,26 @@ pub fn build_ui(app: &Application) -> ApplicationWindow {
         glib::ControlFlow::Continue
     });
 
+    let container_clone3 = container.clone();
+    let state_clone3 = state.clone();
+    rx_ws.attach(None, move |ws| {
+        if state_clone3.borrow().active_workspace_id != ws {
+            state_clone3.borrow_mut().active_workspace_id = ws;
+            if should_autohide(&state_clone3.borrow()) {
+                container_clone3.add_css_class("dock-hidden");
+            } else {
+                container_clone3.remove_css_class("dock-hidden");
+            }
+        }
+        glib::ControlFlow::Continue
+    });
+
     refresh_dock_ui(&container, &state.borrow());
+    if should_autohide(&state.borrow()) {
+        container.add_css_class("dock-hidden");
+    } else {
+        container.remove_css_class("dock-hidden");
+    }
     window.present();
 
     DOCK_WINDOW.with(|w| {
@@ -229,11 +261,14 @@ pub fn toggle_dock_visibility() {
     DOCK_WINDOW.with(|w| {
         if let Some(weak) = w.borrow().as_ref() {
             if let Some(win) = weak.upgrade() {
-                if win.is_visible() {
-                    win.set_visible(false);
-                } else {
-                    win.set_visible(true);
-                    win.present();
+                win.set_visible(true);
+                win.present();
+                if let Some(child) = win.child() {
+                    if child.has_css_class("dock-hidden") {
+                        child.remove_css_class("dock-hidden");
+                    } else {
+                        child.add_css_class("dock-hidden");
+                    }
                 }
             }
         }

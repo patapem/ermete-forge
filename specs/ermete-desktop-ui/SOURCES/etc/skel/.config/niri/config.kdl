@@ -179,10 +179,11 @@ binds {
     // Applications & Shell Modals
     Mod+Return { spawn "foot"; }
     Mod+T      { spawn "foot"; }
-    Mod+D      { spawn "ermete-shell-rs" "--spotlight"; }
+    Mod+D      { spawn "ermete-shell-rs" "--dock"; }
     Mod+Space  { spawn "ermete-shell-rs" "--launcher"; }
     Mod+E      { spawn "nautilus"; }
     Mod+B      { spawn "firefox"; }
+    Mod+I      { spawn "ermete-settings-rs"; }
     
     Mod+A      { spawn "ermete-shell-rs" "--control-center"; }
     Mod+M      { spawn "ermete-shell-rs" "--media-player"; }

@@ -52,12 +52,22 @@ fn main() -> glib::ExitCode {
 
     if args.dock {
         let app = Application::builder()
-            .application_id("os.ermete.DockStandalone")
+            .application_id("os.ermete.Dock")
+            .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
             .build();
         app.connect_activate(|app| {
-            ui::dock::build_ui(app);
+            static ACTIVATED_DOCK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+            if !ACTIVATED_DOCK.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                ui::dock::build_ui(app);
+            } else {
+                ui::dock::toggle_dock_visibility();
+            }
         });
-        return app.run_with_args(&Vec::<String>::new());
+        app.connect_command_line(|app, _cmdline| {
+            app.activate();
+            0
+        });
+        return app.run();
     }
 
     let app = Application::builder()
@@ -69,7 +79,6 @@ fn main() -> glib::ExitCode {
         static ACTIVATED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
         if !ACTIVATED.swap(true, std::sync::atomic::Ordering::SeqCst) {
             ui::topbar::build_ui(app);
-            ui::dock::build_ui(app);
             crate::ui::osd::spawn_osd(app);
         }
     });

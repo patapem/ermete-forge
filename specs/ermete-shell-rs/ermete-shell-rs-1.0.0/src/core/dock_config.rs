@@ -11,8 +11,9 @@ impl Default for DockConfig {
     fn default() -> Self {
         Self {
             pinned: vec![
-                "org.gnome.Terminal.desktop".to_string(),
+                "foot.desktop".to_string(),
                 "firefox.desktop".to_string(),
+                "nautilus.desktop".to_string(),
                 "os.ermete.Settings.desktop".to_string(),
             ],
         }

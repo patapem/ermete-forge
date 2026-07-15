@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-system-services
 Version:        1.0.1
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Ermete OS ermete-system-services
 License:        MIT
 URL:            https://github.com/patapem/ermete-forge
@@ -31,10 +31,14 @@ ln -s ermete-shell.service %{buildroot}/usr/lib/systemd/user/ermete-ags.service
 /usr/lib/systemd/user/niri-session.target
 /usr/lib/systemd/user/ermete-skel-sync.service
 /usr/lib/systemd/user/ermete-shell.service
+/usr/lib/systemd/user/ermete-dock.service
 /usr/lib/systemd/user/ermete-ags.service
 /usr/lib/systemd/user-preset/99-ermete-desktop.preset
 
 %changelog
+* Wed Jul 15 2026 Ermete Forge <forge@ermete.os> - 1.0.1-6
+- Add ermete-dock.service as dedicated user systemd service for interactive Glassmorphic Dock
+
 * Wed Jul 15 2026 Ermete Forge <forge@ermete.os> - 1.0.1-5
 - Rename ermete-ags.service to ermete-shell.service with backward compatibility alias symlink
 

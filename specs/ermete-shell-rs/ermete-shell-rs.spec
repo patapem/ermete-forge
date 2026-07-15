@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-shell-rs
 Version:        1.0.0
-Release:        12%{?dist}
+Release:        13%{?dist}
 Summary:        Ermete OS Native Rust GTK4 Shell
 
 License:        MIT
@@ -27,6 +27,9 @@ install -m 0755 target/release/ermete-shell-rs %{buildroot}%{_bindir}/ermete-she
 %{_bindir}/ermete-shell-rs
 
 %changelog
+* Wed Jul 15 2026 Ermete Forge <forge@ermete.os> - 1.0.0-13
+- Separate single-instance dock process (`--dock`) with D-Bus toggle and active workspace intelli-hide
+
 * Wed Jul 15 2026 Ermete Forge <forge@ermete.os> - 1.0.0-12
 - Fix GTK4 Wayland size.width > 0 runtime failure by sizing trigger_win child box and container
 
