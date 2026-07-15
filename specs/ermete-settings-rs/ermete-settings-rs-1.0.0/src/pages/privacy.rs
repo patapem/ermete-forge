@@ -1,6 +1,40 @@
 use gtk4::prelude::*;
 use gtk4::{Align, Box as GtkBox, Button, CheckButton, Entry, Label, Orientation, Switch};
 
+#[zbus::dbus_proxy(
+    interface = "org.freedesktop.impl.portal.PermissionStore",
+    default_service = "org.freedesktop.impl.portal.PermissionStore",
+    default_path = "/org/freedesktop/impl/portal/PermissionStore"
+)]
+trait PermissionStore {
+    fn set_permission(
+        &self,
+        table: &str,
+        create: bool,
+        id: &str,
+        app_permissions: std::collections::HashMap<&str, Vec<&str>>,
+        data: zbus::zvariant::Value<'_>,
+    ) -> zbus::Result<()>;
+}
+
+pub fn generate_permission_store_payload(
+    app_id: &str,
+    wayland: bool,
+    audio: bool,
+    network: bool,
+    home: bool,
+    devices: bool,
+) -> (String, String, std::collections::HashMap<String, Vec<String>>) {
+    let mut perms = std::collections::HashMap::new();
+    if wayland { perms.insert("wayland".to_string(), vec!["yes".to_string()]); }
+    if audio { perms.insert("audio".to_string(), vec!["yes".to_string()]); }
+    if network { perms.insert("network".to_string(), vec!["yes".to_string()]); }
+    if home { perms.insert("home".to_string(), vec!["yes".to_string()]); }
+    if devices { perms.insert("devices".to_string(), vec!["yes".to_string()]); }
+
+    ("flatpak".to_string(), app_id.to_string(), perms)
+}
+
 pub fn build_page() -> GtkBox {
     let container = GtkBox::builder()
         .orientation(Orientation::Vertical)
@@ -149,7 +183,39 @@ pub fn build_page() -> GtkBox {
         let h = chk_home.is_active();
         let d = chk_devices.is_active();
         
-        status_clone.set_text(&format!("✅ Permetti applicati su Flatpak PermissionStore per '{}': Wayland={}, Audio={}, Network={}, Home={}, Devices={}", app, w, a, n, h, d));
+        let (table, id, perms) = generate_permission_store_payload(&app, w, a, n, h, d);
+        
+        let status_for_async = status_clone.clone();
+        let ctx = gtk4::glib::MainContext::default();
+        ctx.spawn_local(async move {
+            match crate::get_connection().await {
+                Ok(conn) => {
+                    match PermissionStoreProxy::new(&conn).await {
+                        Ok(proxy) => {
+                            let mut borrowed_perms = std::collections::HashMap::new();
+                            for (k, v) in &perms {
+                                borrowed_perms.insert(k.as_str(), v.iter().map(|s| s.as_str()).collect());
+                            }
+                            
+                            if let Err(e) = proxy.set_permission(&table, true, &id, borrowed_perms, zbus::zvariant::Value::from(0i32)).await {
+                                eprintln!("Errore DBus PermissionStore: {:?}", e);
+                                status_for_async.set_text("⚠️ Errore salvataggio permessi");
+                            } else {
+                                status_for_async.set_text(&format!("✅ Permessi applicati su Flatpak PermissionStore per '{}'", id));
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Errore creazione proxy PermissionStore: {:?}", e);
+                            status_for_async.set_text("⚠️ Errore creazione proxy");
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Errore connessione DBus: {:?}", e);
+                    status_for_async.set_text("⚠️ Errore connessione DBus");
+                }
+            }
+        });
     });
 
     container.append(&flatpak_box);
@@ -169,4 +235,21 @@ pub fn build_page() -> GtkBox {
     container.append(&cache_btn);
 
     container
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_permission_store_key_generation() {
+        let (table, id, perms) = generate_permission_store_payload("org.mozilla.firefox", true, true, false, false, false);
+        assert_eq!(table, "flatpak");
+        assert_eq!(id, "org.mozilla.firefox");
+        assert_eq!(perms.get("wayland").unwrap()[0], "yes");
+        assert_eq!(perms.get("audio").unwrap()[0], "yes");
+        assert_eq!(perms.get("network"), None);
+        assert_eq!(perms.get("home"), None);
+        assert_eq!(perms.get("devices"), None);
+    }
 }

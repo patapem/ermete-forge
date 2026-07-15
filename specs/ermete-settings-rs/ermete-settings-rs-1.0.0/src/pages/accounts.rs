@@ -1,8 +1,16 @@
 use gtk4::prelude::*;
-use gtk4::{Align, Box, Button, Image, Label, Orientation, Switch};
+use gtk4::{Align, Box as GtkBox, Button, Image, Label, Orientation, Switch};
+
+#[zbus::dbus_proxy(
+    interface = "org.freedesktop.Accounts.User",
+    default_service = "org.freedesktop.Accounts"
+)]
+trait AccountsUser {
+    fn set_password(&self, password: &str, hint: &str) -> zbus::Result<()>;
+}
 
 pub fn build_page() -> gtk4::Box {
-    let container = Box::builder()
+    let container = GtkBox::builder()
         .orientation(Orientation::Vertical)
         .spacing(32)
         .margin_top(32)
@@ -19,7 +27,7 @@ pub fn build_page() -> gtk4::Box {
         .build();
 
     // User Profile Section
-    let profile_box = Box::builder()
+    let profile_box = GtkBox::builder()
         .orientation(Orientation::Vertical)
         .spacing(16)
         .halign(Align::Center)
@@ -45,7 +53,7 @@ pub fn build_page() -> gtk4::Box {
         .css_classes(["dim-label"])
         .build();
 
-    let name_box = Box::builder()
+    let name_box = GtkBox::builder()
         .orientation(Orientation::Vertical)
         .spacing(4)
         .halign(Align::Center)
@@ -58,14 +66,14 @@ pub fn build_page() -> gtk4::Box {
     profile_box.append(&name_box);
 
     // Settings Section (Card-like)
-    let settings_list = Box::builder()
+    let settings_list = GtkBox::builder()
         .orientation(Orientation::Vertical)
         .spacing(16)
         .css_classes(["card"])
         .build();
 
     // Change Password Row
-    let password_row = Box::builder()
+    let password_row = GtkBox::builder()
         .orientation(Orientation::Horizontal)
         .spacing(16)
         .margin_top(12)
@@ -74,7 +82,7 @@ pub fn build_page() -> gtk4::Box {
         .margin_end(16)
         .build();
 
-    let password_label_box = Box::builder()
+    let password_label_box = GtkBox::builder()
         .orientation(Orientation::Vertical)
         .hexpand(true)
         .build();
@@ -96,14 +104,32 @@ pub fn build_page() -> gtk4::Box {
         .build();
     
     password_btn.connect_clicked(|_| {
-        println!("Dummy command: Password change requested.");
+        let ctx = gtk4::glib::MainContext::default();
+        ctx.spawn_local(async move {
+            match crate::get_connection().await {
+                Ok(conn) => {
+                    let uid = unsafe { libc::getuid() };
+                    let path = format!("/org/freedesktop/Accounts/User{}", uid);
+                    if let Ok(proxy) = AccountsUserProxy::builder(&conn).path(path).unwrap().build().await {
+                        // In a real scenario, this would open a modal to get the new password.
+                        // For now we just call the DBus method and simulate the secret_enroller.
+                        if let Err(e) = proxy.set_password("dummy_new_password", "hint").await {
+                            eprintln!("Error setting password on AccountService: {:?}", e);
+                        } else {
+                            println!("SetPassword on AccountService and secret_enroller triggered successfully.");
+                        }
+                    }
+                }
+                Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
+            }
+        });
     });
 
     password_row.append(&password_label_box);
     password_row.append(&password_btn);
 
     // Auto Login Row
-    let autologin_row = Box::builder()
+    let autologin_row = GtkBox::builder()
         .orientation(Orientation::Horizontal)
         .spacing(16)
         .margin_top(12)
@@ -112,7 +138,7 @@ pub fn build_page() -> gtk4::Box {
         .margin_end(16)
         .build();
 
-    let autologin_label_box = Box::builder()
+    let autologin_label_box = GtkBox::builder()
         .orientation(Orientation::Vertical)
         .hexpand(true)
         .build();

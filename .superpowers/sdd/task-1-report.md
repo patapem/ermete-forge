@@ -5,6 +5,7 @@ DONE
 
 ## Commits Created
 - `653eee4c` (`feat(control-center): eliminate CLI subprocesses with asynchronous D-Bus proxies and system proxies`)
+- `8badaa22` (`fix(control-center): address all code review Critical and Important D-Bus findings`)
 
 ## Summary of Work & Changes
 
@@ -29,22 +30,23 @@ DONE
   ```
 - **Test Output Summary**:
   ```
-  running 8 tests
+  running 9 tests
   test core::dock_config::tests::test_add_and_remove_pin_logic ... ok
   test core::dock_watcher::tests::test_fetch_current_niri_windows_does_not_panic ... ok
   test core::dock_data::tests::test_reconcile_dock_items_merging ... ok
+  test core::system_proxies::tests::test_system_controller_power_and_global_methods ... ok
+  test core::system_proxies::tests::test_review_findings_compliance ... ok
   test core::system_proxies::tests::test_system_controller_ui_network_and_bt_methods ... ok
   test core::system_proxies::tests::test_system_controller_state_updates ... ok
-  test core::system_proxies::tests::test_system_controller_power_and_global_methods ... ok
   test core::dock_config::tests::test_api_add_remove_and_is_pinned ... ok
   test core::dock_watcher::tests::test_spawn_dock_watchers_initial_send ... ok
 
-  test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+  test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
   ```
 
 ## Code Review Remediation (Review Verdict Fixes)
 
-All Critical and Important findings from the Task Reviewer (`653eee4c`) have been addressed:
+All Critical and Important findings from the Task Reviewer (`653eee4c`) have been fully addressed and verified in commit `8badaa22`:
 
 ### Critical Fixes
 1. **Incomplete Subprocess Elimination (`systemctl poweroff/reboot` & wired dead methods)**:
@@ -53,9 +55,9 @@ All Critical and Important findings from the Task Reviewer (`653eee4c`) have bee
    - Wired `toggle_wifi()` and `toggle_bluetooth()` directly into `wifi_sw` and `bt_sw` state handlers in `show_wifi_popover` and `show_bluetooth_popover`.
    - Wired `get_volume()` and `get_brightness()` to initialize `audio_slider` and `bright_slider` in `show_control_center_popover`.
 2. **Real D-Bus Wi-Fi Actions**:
-   - Implemented `connect_wifi`, `disconnect_wifi`, `delete_wifi`, `modify_wifi`, and `get_wifi_details` under `ControllerBackend::Dbus` using `zbus` proxies (`NmSettingsProxy`, `NmSettingsConnectionProxy`, and `NmActiveConnectionProxy`). In mock mode, state changes (`active = true/false`, deletion) are now accurately reflected and verified via unit tests.
+   - Implemented `connect_wifi`, `disconnect_wifi`, `delete_wifi`, `modify_wifi`, and `get_wifi_details` under `ControllerBackend::Dbus` using `zbus` proxies (`NmSettingsProxy`, `NmSettingsConnectionProxy`, and `NmActiveConnectionProxy`). Added robust SSID extraction from `zbus::zvariant::Value` (`extract_ssid`). In mock mode, state changes (`active = true/false`, deletion) are now accurately reflected and verified via unit tests.
 3. **Dynamic MPRIS State**:
-   - Implemented `refresh_mpris()` using `zbus::fdo::DBusProxy` and `PropertiesProxy` to dynamically query `org.mpris.MediaPlayer2.*` track metadata (`title`, `artist`) and playback status. Called `refresh_mpris()` during initialization and inside `player_command()`.
+   - Implemented `refresh_mpris()` using `zbus::fdo::DBusProxy` and `PropertiesProxy` to dynamically query `org.mpris.MediaPlayer2.*` track metadata (`xesam:title`, `xesam:artist`) and playback status with correct `InterfaceName` casting and value extraction. Called `refresh_mpris()` during initialization and inside `player_command()`.
 
 ### Important Fixes
 1. **Strict Error Propagation on D-Bus Methods**:
@@ -63,6 +65,6 @@ All Critical and Important findings from the Task Reviewer (`653eee4c`) have bee
 2. **Network Status SSID Preservation (`get_cached_network_status`)**:
    - Added `active_wifi_ssid: Arc<Mutex<Option<String>>>` to `SystemController` and `refresh_network_status()`. When wireless is up (`wl*` or in mock state), `get_cached_network_status()` returns the actual active Wi-Fi SSID instead of hardcoding `"Connesso"`.
 3. **Remaining CLI Subprocess (`gsettings`)**:
-   - Replaced `Command::new("gsettings")` dark mode toggle with `gio::Settings::new_from_schema_optional("org.gnome.desktop.interface").set_string("color-scheme", "prefer-dark")`.
+   - Replaced `Command::new("gsettings")` dark mode toggle with native GTK/Gio settings: `gtk4::gio::Settings::new("org.gnome.desktop.interface").set_string("color-scheme", "prefer-dark")`.
 4. **Dead Code Elimination (`get_network_status_dbus`)**:
    - Updated `get_network_status_dbus()` in `network.rs` to delegate to `SystemController::get_cached_network_status()` and added `#[allow(dead_code)]` to prevent unused warnings during test compilation.

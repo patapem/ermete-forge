@@ -15,6 +15,15 @@ trait Bluetooth {
     fn get_devices(&self) -> zbus::Result<Vec<String>>;
 }
 
+#[zbus::dbus_proxy(
+    interface = "org.bluez.Device1",
+    default_service = "org.bluez"
+)]
+trait Device1 {
+    fn connect(&self) -> zbus::Result<()>;
+    fn pair(&self) -> zbus::Result<()>;
+}
+
 pub fn build_page() -> Box {
     let container = Box::builder()
         .orientation(Orientation::Vertical)
@@ -149,6 +158,31 @@ pub fn build_page() -> Box {
                                             .valign(Align::Center)
                                             .build();
                                             
+                                        let device_path = device.clone();
+                                        connect_btn.connect_clicked(move |_| {
+                                            let path = device_path.clone();
+                                            let ctx = gtk4::glib::MainContext::default();
+                                            ctx.spawn_local(async move {
+                                                match crate::get_connection().await {
+                                                    Ok(conn) => {
+                                                        if let Ok(proxy) = Device1Proxy::builder(&conn).path(path).unwrap().build().await {
+                                                            if let Err(e) = proxy.pair().await {
+                                                                eprintln!("Error pairing with {}: {:?}", proxy.path(), e);
+                                                            } else {
+                                                                println!("Successfully paired with {}", proxy.path());
+                                                            }
+                                                            if let Err(e) = proxy.connect().await {
+                                                                eprintln!("Error connecting to {}: {:?}", proxy.path(), e);
+                                                            } else {
+                                                                println!("Successfully connected to {}", proxy.path());
+                                                            }
+                                                        }
+                                                    }
+                                                    Err(e) => eprintln!("Error connecting to DBus: {:?}", e),
+                                                }
+                                            });
+                                        });
+                                            
                                         row_box.append(&label);
                                         row_box.append(&connect_btn);
                                         
@@ -180,3 +214,4 @@ pub fn build_page() -> Box {
 
     container
 }
+
