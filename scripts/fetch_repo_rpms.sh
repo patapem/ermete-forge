@@ -26,6 +26,7 @@ TIER0_IMAGES=(
   "ermete-forge-base-config"
   "ermete-forge-selinux"
   "ermete-forge-nix-support"
+  "ermete-forge-recovery"
 )
 for pkg in "${UPSTREAM_CORE[@]}" "${UPSTREAM_MEDIA[@]}"; do
   [[ -n "$pkg" ]] && TIER0_IMAGES+=("ermete-forge-rolling-$pkg")
@@ -58,6 +59,7 @@ TIER3_IMAGES=(
   "ermete-forge-system-services"
   "ermete-forge-desktop-ui"
   "ermete-forge-system-config"
+  "ermete-forge-backup"
 )
 
 pull_and_extract() {

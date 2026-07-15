@@ -19,7 +19,9 @@
     "daemon-rs",
     "store-rs",
     "doctor",
-    "cliphist"
+    "cliphist",
+    "recovery",
+    "backup"
   ],
   "cachyos_addons": [],
   "upstream_core": [
@@ -54,6 +56,7 @@
     "virt-manager"
   ],
   "upstream_desktop": [
+    "cage",
     "niri",
     "adw-gtk3-theme",
     "fontawesome-fonts-all",
