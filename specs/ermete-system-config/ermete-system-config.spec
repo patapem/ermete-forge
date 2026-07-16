@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-system-config
 Version:        1.0.0
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        Ermete OS ermete-system-config
 License:        MIT
 URL:            https://github.com/patapem/ermete-forge
@@ -33,9 +33,14 @@ ln -sf /usr/share/ermete-system-config/greetd.toml /etc/greetd/config.toml 2>/de
 /usr/lib/systemd/system-preset/99-Ermete.preset
 /usr/lib/tmpfiles.d/10-ermete-greetd.conf
 /usr/share/ermete-system-config/greetd.toml
+%dir /etc/yum.repos.d
+%config(noreplace) /etc/yum.repos.d/ermete-forge.repo
 
 
 %changelog
+* Thu Jul 16 2026 Ermete Forge <forge@ermete.os> - 1.0.0-11
+- Add /etc/yum.repos.d/ermete-forge.repo for live DNF rolling release updates
+
 * Tue Jul 14 2026 Ermete Forge <forge@ermete.os> - 1.0.0-10
 - Encapsulate /usr/bin/ermete-session native script and add %post symlink for /etc/greetd/config.toml
 
