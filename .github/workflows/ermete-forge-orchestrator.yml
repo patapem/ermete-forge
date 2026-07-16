@@ -921,6 +921,17 @@ jobs:
           cp -a /github/home/repo-tier2 /github/home/pages_repo/tier2
           cp -a /github/home/repo-tier3 /github/home/pages_repo/tier3
           
+          # Draft: Generazione payload UEFI HTTP Boot (iPXE) per Internet Recovery
+          echo "🌐 Generazione payload UEFI HTTP Boot Internet Recovery..."
+          dnf install -y ipxe-bootimgs
+          mkdir -p /github/home/pages_repo/recovery
+          cp /usr/share/ipxe/ipxe.efi /github/home/pages_repo/recovery/ipxe.efi
+          cat << 'EOF' > /github/home/pages_repo/recovery/boot.ipxe
+          #!ipxe
+          dhcp
+          chain https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/recovery/menu.ipxe || shell
+          EOF
+          
           cd /github/home/pages_repo
           git init
           git config --global user.name "Ermete Forge"
