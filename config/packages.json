@@ -20,8 +20,8 @@
     "store-rs",
     "doctor",
     "cliphist",
-    "recovery",
-    "backup"
+    "backup",
+    "gatekeeper-rs"
   ],
   "cachyos_addons": [],
   "upstream_core": [
