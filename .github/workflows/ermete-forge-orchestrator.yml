@@ -856,8 +856,10 @@ jobs:
             echo "🚀 Tier '$tier' ($img_name): content hash changed (old: '$OLD_HASH', new: '$NEW_HASH'). Creating metadata & pushing..."
             cd "$dir"
             
-            # Sign the RPMs
-            find . -name "*.rpm" -exec rpmsign --addsign {} +
+            # Sign the RPMs only if a GPG key is configured
+            if [ -n "${{ secrets.RPM_GPG_KEY }}" ]; then
+              find . -name "*.rpm" -exec rpmsign --addsign {} + || true
+            fi
             
             createrepo_c .
             

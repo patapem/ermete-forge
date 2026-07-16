@@ -27,6 +27,7 @@ TIER0_IMAGES=(
   "ermete-forge-selinux"
   "ermete-forge-nix-support"
   "ermete-forge-recovery"
+  "ermete-forge-secure-boot"
 )
 for pkg in "${UPSTREAM_CORE[@]}" "${UPSTREAM_MEDIA[@]}"; do
   [[ -n "$pkg" ]] && TIER0_IMAGES+=("ermete-forge-rolling-$pkg")
@@ -61,6 +62,12 @@ TIER3_IMAGES=(
   "ermete-forge-system-config"
   "ermete-forge-backup"
   "ermete-forge-gatekeeper-rs"
+  "ermete-forge-telemetry-rs"
+  "ermete-forge-cloud-rs"
+  "ermete-forge-mdm-rs"
+  "ermete-forge-updater-rs"
+  "ermete-forge-xdg-desktop-portal-ermete"
+  "ermete-forge-lvfs-rs"
 )
 
 declare -A OLD_DIGESTS
