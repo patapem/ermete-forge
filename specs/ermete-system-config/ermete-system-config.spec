@@ -1,13 +1,13 @@
 %global debug_package %{nil}
 Name:           ermete-system-config
 Version:        1.0.0
-Release:        12%{?dist}
+Release:        13%{?dist}
 Summary:        Ermete OS ermete-system-config
 License:        MIT
 URL:            https://github.com/patapem/ermete-forge
 BuildArch:      noarch
 
-Requires:       cage greetd ermete-shell-rs greenboot systemd-ukify usbguard
+Requires:       cage greetd ermete-shell-rs greenboot systemd-ukify usbguard kernel-rt
 
 %description
 Provides ermete-system-config for Ermete OS.
@@ -43,9 +43,13 @@ ln -sf /usr/share/ermete-system-config/greetd.toml /etc/greetd/config.toml 2>/de
 %attr(0755,root,root) /etc/greenboot/check/required.d/20-niri-running.sh
 %dir /etc/usbguard
 %config(noreplace) /etc/usbguard/usbguard-daemon.conf
-
+%dir /etc/security/limits.d
+%config(noreplace) /etc/security/limits.d/99-ermete-realtime.conf
 
 %changelog
+* Thu Jul 16 2026 Ermete Forge <forge@ermete.os> - 1.0.0-13
+- Enforce PREEMPT_RT scheduling limits for sub-5ms latency and add kernel-rt requirement
+
 * Thu Jul 16 2026 Ermete Forge <forge@ermete.os> - 1.0.0-12
 - Add systemd-ukify dependency and ermete-uki-enroll script for UKI generation and TPM2 LUKS enrollment
 
