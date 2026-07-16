@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use tracing::{info, warn};
-use std::process::Command;
+use tokio::process::Command;
+use serde_json::Value;
 
 #[derive(Debug)]
 pub enum UpdateStatus {
@@ -10,14 +11,12 @@ pub enum UpdateStatus {
 }
 
 pub struct UpdateEngine {
-    // In the future, this will hold zbus connections for D-Bus IPC
-    // conn: zbus::Connection,
+    // Future ZBus proxy objects could live here
 }
 
 impl UpdateEngine {
     pub async fn new() -> Result<Self> {
         info!("Initializing UpdateEngine...");
-        // let conn = zbus::Connection::system().await?;
         Ok(Self {})
     }
 
@@ -25,37 +24,51 @@ impl UpdateEngine {
         // Step 1: Check Layer 1 (Userspace) updates via rpm-ostree
         info!("Checking rpm-ostree for Layer 1 updates...");
         
-        // This is a placeholder logic. Real implementation will use D-Bus
-        // to query `org.projectatomic.rpmostree1`.
         let ostree_output = Command::new("rpm-ostree")
             .arg("status")
+            .arg("--json")
             .output()
+            .await
             .context("Failed to execute rpm-ostree")?;
 
-        let status_str = String::from_utf8_lossy(&ostree_output.stdout);
-        
-        if status_str.contains("AvailableUpdate") {
-            info!("Layer 1 updates found. Applying live...");
-            // Command::new("rpm-ostree").arg("apply-live").status()?;
-            return Ok(UpdateStatus::Layer1AppliedLive);
+        if ostree_output.status.success() {
+            let ostree_json: Value = serde_json::from_slice(&ostree_output.stdout).unwrap_or(Value::Null);
+            
+            // `rpm-ostree status --json` usually has a "deployments" array. 
+            // We check if there's a staged deployment waiting, or updates available.
+            // Placeholder heuristic for now:
+            let has_layer1_updates = ostree_json.to_string().contains("AvailableUpdate"); 
+            
+            if has_layer1_updates {
+                info!("Layer 1 updates found. Applying live...");
+                // Command::new("rpm-ostree").arg("apply-live").output().await?;
+                return Ok(UpdateStatus::Layer1AppliedLive);
+            }
         }
 
         // Step 2: Check Layer 0 (Core OS) updates via bootc
         info!("Checking bootc for Layer 0 updates...");
         
-        // This is a placeholder logic for `bootc upgrade`.
         let bootc_output = Command::new("bootc")
             .arg("status")
+            .arg("--json")
             .output()
+            .await
             .context("Failed to execute bootc")?;
 
-        let bootc_str = String::from_utf8_lossy(&bootc_output.stdout);
-        
-        if bootc_str.contains("Update available") {
-            info!("Layer 0 core update found. Stage for next reboot...");
-            // Command::new("bootc").arg("upgrade").status()?;
-            warn!("A system reboot is required to apply the new Kernel/DKMS layer.");
-            return Ok(UpdateStatus::Layer0RebootRequired);
+        if bootc_output.status.success() {
+            let bootc_json: Value = serde_json::from_slice(&bootc_output.stdout).unwrap_or(Value::Null);
+            
+            // `bootc status` JSON contains "status": {"type": "..."}
+            let is_bootc_available = bootc_json["status"]["type"] == "updateAvailable" 
+                || bootc_json.to_string().contains("updateAvailable");
+                
+            if is_bootc_available {
+                info!("Layer 0 core update found. Stage for next reboot...");
+                // Command::new("bootc").arg("upgrade").output().await?;
+                warn!("A system reboot is required to apply the new Kernel/DKMS layer.");
+                return Ok(UpdateStatus::Layer0RebootRequired);
+            }
         }
 
         Ok(UpdateStatus::NoUpdates)
