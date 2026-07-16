@@ -14,16 +14,17 @@ async fn main() -> Result<()> {
 
     info!("Starting Ermete Cloud Daemon (Universal Clipboard & P2P Engine)");
 
+    let sync_engine = std::sync::Arc::new(sync::SyncEngine::new());
+    
     // Export D-Bus interface
     let _conn = zbus::ConnectionBuilder::system()?
         .name("os.ermete.Cloud")?
-        .serve_at("/os/ermete/Cloud", dbus::CloudIface)?
+        .serve_at("/os/ermete/Cloud", dbus::CloudIface { engine: sync_engine.clone() })?
         .build()
         .await?;
 
     info!("D-Bus Interface 'os.ermete.Cloud' registered.");
 
-    let mut sync_engine = sync::SyncEngine::new();
     
     // Start local mDNS discovery loop (placeholder)
     sync_engine.start_discovery().await?;
