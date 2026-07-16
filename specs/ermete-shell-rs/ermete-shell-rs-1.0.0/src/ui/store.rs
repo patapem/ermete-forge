@@ -82,7 +82,7 @@ pub fn show_store_modal(app: &Application) {
 
         glib::spawn_future_local(async move {
             if let Ok(conn) = zbus::Connection::system().await {
-                if let Ok(proxy) = zbus::ProxyBuilder::new_bare(&conn)
+                if let Ok(proxy) = zbus::Proxy::builder(&conn)
                     .interface("os.ermete.Store")
                     .unwrap()
                     .destination("os.ermete.Store")
@@ -93,7 +93,7 @@ pub fn show_store_modal(app: &Application) {
                     .await
                 {
                     if let Ok(json_str) = proxy.call_method("search_apps", &(query,)).await {
-                        if let Ok((res_str,)) = json_str.body::<(String,)>() {
+                        if let Ok((res_str,)) = json_str.body().deserialize::<(String,)>() {
                             if let Ok(apps) = serde_json::from_str::<Vec<Value>>(&res_str) {
                                 for app in apps {
                                     if let (Some(id), Some(name), Some(summary)) = (
@@ -169,7 +169,7 @@ fn create_app_card(id: &str, name: &str, summary: &str, conn: &zbus::Connection)
         let conn = conn_clone.clone();
 
         glib::spawn_future_local(async move {
-            if let Ok(proxy) = zbus::ProxyBuilder::new_bare(&conn)
+            if let Ok(proxy) = zbus::Proxy::builder(&conn)
                 .interface("os.ermete.Store")
                 .unwrap()
                 .destination("os.ermete.Store")

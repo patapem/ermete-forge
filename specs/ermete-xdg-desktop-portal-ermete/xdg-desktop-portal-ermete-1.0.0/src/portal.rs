@@ -70,7 +70,8 @@ impl ErmetePortal {
 
 #[interface(name = "org.freedesktop.impl.portal.Location")]
 impl ErmetePortal {
-    async fn create_session(&self, _handle: String, _session_handle: String, app_id: String, _options: HashMap<String, zbus::zvariant::Value<'_>>) -> std::result::Result<u32, zbus::fdo::Error> {
+    #[zbus(name = "CreateSession")]
+    async fn create_location_session(&self, _handle: String, _session_handle: String, app_id: String, _options: HashMap<String, zbus::zvariant::Value<'_>>) -> std::result::Result<u32, zbus::fdo::Error> {
         if Self::request_permission("Location", &app_id).await {
             Ok(0)
         } else {
