@@ -9,6 +9,7 @@ mod gatekeeper_listener;
 mod voiceover;
 mod qos;
 pub mod ai;
+pub mod audio_spatial;
 
 use std::error::Error;
 use zbus::connection::Builder;
