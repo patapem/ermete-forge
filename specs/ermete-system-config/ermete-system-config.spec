@@ -1,13 +1,13 @@
 %global debug_package %{nil}
 Name:           ermete-system-config
 Version:        1.0.0
-Release:        11%{?dist}
+Release:        12%{?dist}
 Summary:        Ermete OS ermete-system-config
 License:        MIT
 URL:            https://github.com/patapem/ermete-forge
 BuildArch:      noarch
 
-Requires:       cage greetd ermete-shell-rs greenboot
+Requires:       cage greetd ermete-shell-rs greenboot systemd-ukify
 
 %description
 Provides ermete-system-config for Ermete OS.
@@ -30,6 +30,7 @@ ln -sf /usr/share/ermete-system-config/greetd.toml /etc/greetd/config.toml 2>/de
 %files
 %dir /usr/share/ermete-system-config
 %attr(0755,root,root) /usr/bin/ermete-session
+%attr(0755,root,root) /usr/bin/ermete-uki-enroll
 /usr/lib/systemd/system-preset/99-Ermete.preset
 /usr/lib/tmpfiles.d/10-ermete-greetd.conf
 /usr/share/ermete-system-config/greetd.toml
@@ -40,6 +41,9 @@ ln -sf /usr/share/ermete-system-config/greetd.toml /etc/greetd/config.toml 2>/de
 
 
 %changelog
+* Thu Jul 16 2026 Ermete Forge <forge@ermete.os> - 1.0.0-12
+- Add systemd-ukify dependency and ermete-uki-enroll script for UKI generation and TPM2 LUKS enrollment
+
 * Thu Jul 16 2026 Ermete Forge <forge@ermete.os> - 1.0.0-11
 - Add /etc/yum.repos.d/ermete-forge.repo for live DNF rolling release updates
 
