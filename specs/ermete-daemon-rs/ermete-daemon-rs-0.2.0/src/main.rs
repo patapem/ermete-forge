@@ -9,6 +9,7 @@ mod gatekeeper_listener;
 mod voiceover;
 mod qos;
 pub mod ai;
+pub mod gaze;
 
 use std::error::Error;
 use zbus::connection::Builder;
@@ -34,6 +35,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     qos::start_qos_observer().await;
 
     let _ai_core = AiCore::new();
+
+    println!("Starting Gaze-Tracking Navigation module...");
+    let gaze_tracker = gaze::GazeTracker::new();
+    gaze_tracker.start();
 
     println!("Initializing ACID Settings Engine and XDG Desktop Portal backend...");
     let settings_srv = SettingsService::new();
