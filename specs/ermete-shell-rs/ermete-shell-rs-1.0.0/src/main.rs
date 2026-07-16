@@ -108,6 +108,7 @@ fn main() -> glib::ExitCode {
         if !ACTIVATED.swap(true, std::sync::atomic::Ordering::SeqCst) {
             ui::topbar::build_ui(app);
             crate::ui::osd::spawn_osd(app);
+            crate::ui::desktop_widgets::build_desktop_widgets(app);
         }
     });
 
