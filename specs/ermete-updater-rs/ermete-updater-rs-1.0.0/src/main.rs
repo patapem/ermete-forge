@@ -4,6 +4,7 @@ use tokio::time::sleep;
 use tracing::{info, warn, error};
 
 mod engine;
+mod dbus;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -13,6 +14,15 @@ async fn main() -> Result<()> {
         .init();
 
     info!("Starting Ermete Updater Daemon (Layer 0 & Layer 1 OTA Engine)");
+
+    // Initialize the D-Bus connection and export the interface
+    let _conn = zbus::ConnectionBuilder::system()?
+        .name("os.ermete.Updater")?
+        .serve_at("/os/ermete/Updater", dbus::UpdaterIface)?
+        .build()
+        .await?;
+
+    info!("D-Bus Interface 'os.ermete.Updater' registered.");
 
     // Initialize the dual-layer update engine
     let mut update_engine = engine::UpdateEngine::new().await?;
