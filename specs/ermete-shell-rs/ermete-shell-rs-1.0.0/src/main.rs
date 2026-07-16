@@ -36,6 +36,8 @@ struct Args {
     gatekeeper_prompt: Option<String>,
     #[arg(long)]
     overview: bool,
+    #[arg(long)]
+    store: bool,
 }
 
 const APP_ID: &str = "os.ermete.Shell";
@@ -61,6 +63,16 @@ fn main() -> glib::ExitCode {
             .build();
         app.connect_activate(|app| {
             crate::ui::mission_control::build_ui(app);
+        });
+        return app.run_with_args(&Vec::<String>::new());
+    }
+
+    if args.store {
+        let app = Application::builder()
+            .application_id("os.ermete.StoreUI")
+            .build();
+        app.connect_activate(|app| {
+            crate::ui::store::show_store_modal(app);
         });
         return app.run_with_args(&Vec::<String>::new());
     }
