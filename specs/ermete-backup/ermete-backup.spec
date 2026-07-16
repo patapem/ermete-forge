@@ -25,10 +25,10 @@ mkdir -p %{buildroot}%{_bindir}
 install -m 0755 target/release/ermete-backup-daemon %{buildroot}%{_bindir}/ermete-backup-daemon
 install -m 0755 target/release/ermete-backup-ui %{buildroot}%{_bindir}/ermete-backup-ui
 
-mkdir -p %{buildroot}/usr/lib/systemd/user
-install -m 0644 systemd/ermete-backup.service %{buildroot}/usr/lib/systemd/user/ermete-backup.service
-install -m 0644 systemd/ermete-backup-hourly.timer %{buildroot}/usr/lib/systemd/user/ermete-backup-hourly.timer
-install -m 0644 systemd/ermete-backup-hourly.service %{buildroot}/usr/lib/systemd/user/ermete-backup-hourly.service
+mkdir -p %{buildroot}/usr/lib/systemd/system
+install -m 0644 systemd/ermete-backup.service %{buildroot}/usr/lib/systemd/system/ermete-backup.service
+install -m 0644 systemd/ermete-backup-hourly.timer %{buildroot}/usr/lib/systemd/system/ermete-backup-hourly.timer
+install -m 0644 systemd/ermete-backup-hourly.service %{buildroot}/usr/lib/systemd/system/ermete-backup-hourly.service
 
 mkdir -p %{buildroot}/usr/share/dbus-1/system.d
 install -m 0644 systemd/org.ermete.Backup1.conf %{buildroot}/usr/share/dbus-1/system.d/org.ermete.Backup1.conf
@@ -36,9 +36,9 @@ install -m 0644 systemd/org.ermete.Backup1.conf %{buildroot}/usr/share/dbus-1/sy
 %files
 %{_bindir}/ermete-backup-daemon
 %{_bindir}/ermete-backup-ui
-/usr/lib/systemd/user/ermete-backup.service
-/usr/lib/systemd/user/ermete-backup-hourly.timer
-/usr/lib/systemd/user/ermete-backup-hourly.service
+/usr/lib/systemd/system/ermete-backup.service
+/usr/lib/systemd/system/ermete-backup-hourly.timer
+/usr/lib/systemd/system/ermete-backup-hourly.service
 /usr/share/dbus-1/system.d/org.ermete.Backup1.conf
 
 %changelog
