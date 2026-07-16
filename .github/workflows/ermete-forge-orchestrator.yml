@@ -16,7 +16,7 @@ jobs:
     name: 🧠 Orchestrator Brain
     runs-on: ubuntu-latest
     container:
-      image: fedora:latest
+      image: fedora:43
     outputs:
       custom_packages: ${{ steps.brain.outputs.custom_packages }}
       upstream_core: ${{ steps.brain.outputs.upstream_core }}
@@ -26,6 +26,8 @@ jobs:
       has_changes: ${{ steps.brain.outputs.has_changes }}
     steps:
       - uses: actions/checkout@v4
+      - name: Align Repositories
+        run: cp builder/rpmfusion-custom.repo /etc/yum.repos.d/ 2>/dev/null || true
       - name: Compute Dynamic Matrix
         id: brain
         run: ./scripts/dynamic-matrix.sh
