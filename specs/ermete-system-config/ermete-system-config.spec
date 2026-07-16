@@ -7,8 +7,10 @@ License:        MIT
 URL:            https://github.com/patapem/ermete-forge
 BuildArch:      noarch
 
-Requires:       cage greetd ermete-shell-rs greenboot systemd-ukify usbguard kernel-rt
-
+Requires:       cage greetd greenboot systemd-ukify usbguard kernel-rt
+# Core UI and Daemons
+Requires:       ermete-shell-rs ermete-settings-rs ermete-daemon-rs
+Requires:       ermete-updater-rs ermete-store-rs ermete-telemetry-rs ermete-cloud-rs xdg-desktop-portal-ermete
 %description
 Provides ermete-system-config for Ermete OS.
 
