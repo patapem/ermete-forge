@@ -21,15 +21,13 @@ impl VoiceOver {
         }
     }
 
-    pub fn setup_shortcuts(&self, app: &gtk4::Application) {
+    pub fn setup_shortcuts(&self, _app: &gtk4::Application) {
         // Placeholder for setting up a shortcut to read focused element
         // e.g. listening for Super+Alt+Space
     }
 
     pub fn read_focused_element(&self) {
-        let tts_lock = self.tts.clone();
-        
-        if let Ok(mut tts_guard) = tts_lock.lock() {
+        if let Ok(mut tts_guard) = self.tts.lock() {
             if let Some(tts) = tts_guard.as_mut() {
                 // Draft logic: retrieve the currently focused GTK widget
                 // and extract its accessible name/role via at-spi2/gtk4 a11y tree.

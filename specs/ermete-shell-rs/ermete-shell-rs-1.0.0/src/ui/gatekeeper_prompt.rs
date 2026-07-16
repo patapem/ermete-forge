@@ -75,7 +75,7 @@ pub fn build_ui(app: &Application, app_path: &str) {
         .css_classes(["suggested-action", "gatekeeper-btn"])
         .build();
         
-    let app_clone = app.clone();
+    let _app_clone = app.clone();
     btn_cancel.connect_clicked(move |_| {
         // Exit with code 1 to deny
         std::process::exit(1);
@@ -86,7 +86,7 @@ pub fn build_ui(app: &Application, app_path: &str) {
         .css_classes(["destructive-action", "gatekeeper-btn"])
         .build();
 
-    let app_clone2 = app.clone();
+    let _app_clone2 = app.clone();
     btn_approve.connect_clicked(move |_| {
         // Future: PAM Authentication here!
         // For now, exit 0 to approve

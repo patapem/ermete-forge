@@ -1,4 +1,4 @@
-use relm4::{gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{gtk, ComponentParts, ComponentSender, SimpleComponent, RelmWidgetExt};
 use gtk::prelude::*;
 
 // Draft Architecture for Control Center using Relm4 (Model-View-Update pattern)
