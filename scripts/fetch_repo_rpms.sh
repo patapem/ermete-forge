@@ -60,6 +60,7 @@ TIER3_IMAGES=(
   "ermete-forge-desktop-ui"
   "ermete-forge-system-config"
   "ermete-forge-backup"
+  "ermete-forge-gatekeeper-rs"
 )
 
 pull_and_extract() {
