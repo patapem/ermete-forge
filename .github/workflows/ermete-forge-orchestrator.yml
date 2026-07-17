@@ -328,7 +328,7 @@ jobs:
       - name: Cache Compiler Objects (ccache)
         uses: actions/cache@v4
         with:
-          path: ~/.cache/ccache
+          path: /var/cache/ccache
           key: nvidia-ccache-${{ github.sha }}
           restore-keys: |
             nvidia-ccache-
@@ -346,14 +346,14 @@ jobs:
           mkdir -p /etc/pki/akmods/certs /etc/pki/akmods/private
           echo "${{ secrets.MOK_PRIVATE_KEY }}" | base64 -d > /etc/pki/akmods/private/private_key.priv
           echo "${{ secrets.MOK_PUBLIC_DER }}" | base64 -d > /etc/pki/akmods/certs/public_key.der
-          cp config/rpmmacros ~/.rpmmacros
+          cp config/rpmmacros /etc/rpm/macros.98-config
           chmod 0644 /etc/pki/akmods/private/private_key.priv
 
           # [BEDROCK UNIFICATION] The kernel is built with Clang and LLD.
           # We must instruct rpmbuild to use Clang and LLD as well, otherwise it defaults to GCC
           # and injects `-ffat-lto-objects` which causes Clang to fail during `make`.
           # We also MUST inject the exports into `%__spec_build_pre` because rpmbuild strips environment variables!
-          cat << 'MACRO' >> ~/.rpmmacros
+          cat << 'MACRO' > /etc/rpm/macros.99-akmods
           %toolchain clang
           %_ld ld.lld
           %_ldflags -Wl,-O2 -Wl,--as-needed -Wl,--sort-common -Wl,-z,now -Wl,-z,relro
@@ -367,13 +367,14 @@ jobs:
             export LLVM=1\
             export LLVM_IAS=1\
             export PATH="/usr/lib64/ccache:/usr/lib/ccache:$PATH"\
-            export CCACHE_DIR=~/.cache/ccache
+            export CCACHE_DIR=/var/cache/ccache
 
           MACRO
 
           export PATH="/usr/lib64/ccache:/usr/lib/ccache:$PATH"
-          export CCACHE_DIR=~/.cache/ccache
-          mkdir -p ~/.cache/ccache
+          export CCACHE_DIR=/var/cache/ccache
+          mkdir -p /var/cache/ccache
+          chmod 777 -R /var/cache/ccache
           ccache -z
 
           akmods --force --kernels $REAL_KERNEL_VER || true
