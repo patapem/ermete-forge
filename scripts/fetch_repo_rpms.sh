@@ -98,6 +98,19 @@ pull_and_extract() {
   if [ -n "$ctr" ]; then
     local mnt
     mnt=$(buildah mount "$ctr")
+    
+    # Prune old versions of the same package to avoid conflicting requests downstream
+    for new_rpm in "$mnt"/*.rpm; do
+      if [ -f "$new_rpm" ]; then
+        local pkg_name
+        pkg_name=$(rpm -qp --queryformat '%{NAME}' "$new_rpm" 2>/dev/null || true)
+        if [ -n "$pkg_name" ]; then
+          rm -f "$target_dir/${pkg_name}"-[0-9]*.rpm 2>/dev/null || true
+          rm -f "/github/home/repo/${pkg_name}"-[0-9]*.rpm 2>/dev/null || true
+        fi
+      fi
+    done
+
     cp -a "$mnt"/*.rpm "$target_dir/" 2>/dev/null || true
     cp -a "$mnt"/*.rpm "/github/home/repo/" 2>/dev/null || true
     buildah umount "$ctr"
