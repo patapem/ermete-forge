@@ -329,7 +329,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /var/cache/akmods/nvidia/
-          key: rpm-nvidia-bedrock2-${{ steps.kernel.outputs.kernel_ver }}-${{ steps.kernel.outputs.nvidia_ver }}
+          key: rpm-nvidia-bedrock3-${{ steps.kernel.outputs.kernel_ver }}-${{ steps.kernel.outputs.nvidia_ver }}
       - name: Cache Compiler Objects (ccache)
         uses: actions/cache@v4
         with:
@@ -402,6 +402,7 @@ jobs:
             nvidia-driver-libs \
             nvidia-driver-cuda \
             nvidia-driver-cuda-libs \
+            nvidia-driver-selinux \
             nvidia-persistenced \
             nvidia-settings \
             egl-wayland \
