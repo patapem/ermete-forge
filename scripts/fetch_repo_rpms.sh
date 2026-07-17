@@ -86,12 +86,12 @@ pull_and_extract() {
 
   if [ -n "$old_digest" ] && [ -n "$new_digest" ] && [ "$old_digest" = "$new_digest" ]; then
     echo "    [CACHE HIT] $img hasn't changed. Skipping pull."
-    NEW_DIGESTS["$img"]="$new_digest"
+    echo "$new_digest" > "/tmp/digest_$img"
     return 0
   fi
   
   echo "    [CACHE MISS] Pulling $img (old: $old_digest, new: $new_digest)"
-  NEW_DIGESTS["$img"]="$new_digest"
+  echo "$new_digest" > "/tmp/digest_$img"
 
   local ctr
   ctr=$(buildah from "$IMAGE_LOWER" || true)
@@ -134,22 +134,30 @@ done
 
 echo "=== Extracting Tier 0 RPMs ==="
 for img in "${TIER0_IMAGES[@]}"; do
-  pull_and_extract "$img" "/github/home/repo-tier0"
+  pull_and_extract "$img" "/github/home/repo-tier0" &
 done
 
 echo "=== Extracting Tier 1 RPMs ==="
 for img in "${TIER1_IMAGES[@]}"; do
-  pull_and_extract "$img" "/github/home/repo-tier1"
+  pull_and_extract "$img" "/github/home/repo-tier1" &
 done
 
 echo "=== Extracting Tier 2 RPMs ==="
 for img in "${TIER2_IMAGES[@]}"; do
-  pull_and_extract "$img" "/github/home/repo-tier2"
+  pull_and_extract "$img" "/github/home/repo-tier2" &
 done
 
 echo "=== Extracting Tier 3 RPMs ==="
 for img in "${TIER3_IMAGES[@]}"; do
-  pull_and_extract "$img" "/github/home/repo-tier3"
+  pull_and_extract "$img" "/github/home/repo-tier3" &
+done
+
+wait
+
+for img in "${TIER0_IMAGES[@]}" "${TIER1_IMAGES[@]}" "${TIER2_IMAGES[@]}" "${TIER3_IMAGES[@]}"; do
+  if [ -f "/tmp/digest_$img" ]; then
+    NEW_DIGESTS["$img"]=$(cat "/tmp/digest_$img")
+  fi
 done
 
 echo "=== Saving New Manifests ==="
