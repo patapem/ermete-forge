@@ -349,22 +349,26 @@ jobs:
           cp config/rpmmacros ~/.rpmmacros
           chmod 0644 /etc/pki/akmods/private/private_key.priv
 
-          # [GCC 15 WORKAROUND] NVIDIA 610.43 causes warnings that GCC 15 treats as errors.
-          export IGNORE_CC_MISMATCH=1
-          export KCFLAGS="-Wno-error"
-          export CFLAGS="-Wno-error"
-          export LLVM=1
-          export LLVM_IAS=1
-          
           # [BEDROCK UNIFICATION] The kernel is built with Clang and LLD.
           # We must instruct rpmbuild to use Clang and LLD as well, otherwise it defaults to GCC
           # and injects `-ffat-lto-objects` which causes Clang to fail during `make`.
+          # We also MUST inject the exports into `%__spec_build_pre` because rpmbuild strips environment variables!
           cat << 'MACRO' >> ~/.rpmmacros
           %toolchain clang
           %_ld ld.lld
           %_ldflags -Wl,-O2 -Wl,--as-needed -Wl,--sort-common -Wl,-z,now -Wl,-z,relro
           %optflags %{__global_compiler_flags} -O3 -march=x86-64-v3 -pipe -Wno-error
           %kcflags -O3 -march=x86-64-v3 -pipe -Wno-error
+          
+          %__spec_build_pre %{___build_pre}\
+            export IGNORE_CC_MISMATCH=1\
+            export KCFLAGS="-Wno-error -fno-lto"\
+            export CFLAGS="-Wno-error -fno-lto"\
+            export LLVM=1\
+            export LLVM_IAS=1\
+            export PATH="/usr/lib64/ccache:/usr/lib/ccache:$PATH"\
+            export CCACHE_DIR=~/.cache/ccache\
+
           MACRO
 
           export PATH="/usr/lib64/ccache:/usr/lib/ccache:$PATH"
