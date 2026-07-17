@@ -25,7 +25,7 @@ jobs:
       upstream_cli: ${{ steps.brain.outputs.upstream_cli }}
       has_changes: ${{ steps.brain.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Align Repositories
         run: cp builder/rpmfusion-custom.repo /etc/yum.repos.d/ 2>/dev/null || true
       - name: Compute Dynamic Matrix
@@ -40,7 +40,7 @@ jobs:
       packages: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check Idempotency (Content Hash)
         id: check_idempotency
         env:
@@ -82,7 +82,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/ermete-builder:latest
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check Idempotency (Content Hash)
         id: check
         env:
@@ -173,7 +173,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/ermete-builder:latest
       options: --cap-add SYS_ADMIN --security-opt label=disable
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Install Build Dependencies
         run: |
@@ -305,7 +305,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/ermete-builder:latest
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Resolve Kernel Version and Install Chimera Headers
         id: kernel
         run: |
@@ -464,7 +464,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/ermete-builder:latest
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Calculate Hash
         id: hash
@@ -562,7 +562,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/ermete-builder:latest
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Calculate Hash
         id: hash
@@ -660,7 +660,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/ermete-builder:latest
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Calculate Hash
         id: hash
@@ -759,7 +759,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/ermete-builder:latest
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Calculate Hash
         id: hash
@@ -848,7 +848,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/ermete-builder:latest
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Create Repo and Push OCI
         run: |
           dnf install -y createrepo_c buildah skopeo jq rpm-sign gnupg2
