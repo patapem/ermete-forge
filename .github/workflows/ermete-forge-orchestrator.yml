@@ -316,13 +316,15 @@ jobs:
           rpm -Uvh --oldpackage --replacepkgs --force $mnt/*.rpm
           buildah umount $ctr
           QUALIFIED_KERNEL=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel | sort -V | tail -n 1)
+          QUALIFIED_NVIDIA=$(dnf repoquery --qf '%{VERSION}-%{RELEASE}\n' akmod-nvidia 2>/dev/null | sort -V | tail -n 1)
           echo "kernel_ver=${QUALIFIED_KERNEL}" >> $GITHUB_OUTPUT
+          echo "nvidia_ver=${QUALIFIED_NVIDIA}" >> $GITHUB_OUTPUT
       - name: Cache RPMs
         id: cache
         uses: actions/cache@v4
         with:
           path: /var/cache/akmods/nvidia/
-          key: rpm-nvidia-bedrock2-${{ steps.kernel.outputs.kernel_ver }}
+          key: rpm-nvidia-bedrock2-${{ steps.kernel.outputs.kernel_ver }}-${{ steps.kernel.outputs.nvidia_ver }}
       - name: Cache Compiler Objects (ccache)
         uses: actions/cache@v4
         with:
