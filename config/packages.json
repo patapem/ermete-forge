@@ -28,7 +28,8 @@
     "mdm-rs",
     "xdg-desktop-portal-ermete",
     "secure-boot",
-    "lvfs-rs"
+    "lvfs-rs",
+    "ui-agent"
   ],
   "cachyos_addons": [],
   "upstream_core": [
