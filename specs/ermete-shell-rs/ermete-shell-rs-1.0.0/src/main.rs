@@ -45,6 +45,9 @@ struct Args {
 const APP_ID: &str = "os.ermete.Shell";
 
 fn main() -> glib::ExitCode {
+    // Workaround for Vulkan swapchain resizing panic (VK_ERROR_OUT_OF_DATE_KHR) on Wayland
+    std::env::set_var("GSK_RENDERER", "ngl");
+
     let args = Args::parse();
     crate::core::system_proxies::init_system_controller();
 
