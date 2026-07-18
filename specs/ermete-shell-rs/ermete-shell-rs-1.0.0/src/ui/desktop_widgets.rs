@@ -92,8 +92,8 @@ fn update_widget_position(target_id: &str, new_x: f64, new_y: f64) {
 // --- OS Stats Readers ---
 
 fn get_memory_usage() -> (u64, u64) {
-    let mut total = 0;
-    let mut available = 0;
+    let mut total: u64 = 0;
+    let mut available: u64 = 0;
     if let Ok(content) = fs::read_to_string("/proc/meminfo") {
         for line in content.lines() {
             if line.starts_with("MemTotal:") {
@@ -292,7 +292,7 @@ fn reload_widgets(canvas: &Fixed) {
 
 pub fn build_desktop_widgets(app: &Application) {
     let provider = CssProvider::new();
-    provider.load_from_string(
+    provider.load_from_data(
         "
         window.desktop-overlay {
             background-color: transparent;

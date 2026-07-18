@@ -297,7 +297,7 @@ pub fn show_spotlight_modal(app: &Application) {
 
     // Inietta lo stile Premium Seelen UI (Glassmorphism e Typography)
     let provider = gtk4::CssProvider::new();
-    provider.load_from_string(
+    provider.load_from_data(
         "
         window.spotlight-window {
             background-color: transparent;
