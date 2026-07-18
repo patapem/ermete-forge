@@ -154,6 +154,32 @@ pub fn populate_launcher_list(list_box: &GtkBox, filter_text: &str, category_fil
         return;
     }
 
+    if is_spotlight && filter_lower.starts_with('?') {
+        let query = filter_text.trim_start_matches('?').trim();
+        if !query.is_empty() {
+            let row = Button::builder().css_classes(["spotlight-item"]).build();
+            let hbox = GtkBox::builder().orientation(Orientation::Horizontal).spacing(16).build();
+            let img = Image::builder().icon_name("web-browser").pixel_size(40).build();
+            hbox.append(&img);
+            let vbox = GtkBox::builder().orientation(Orientation::Vertical).valign(Align::Center).build();
+            let name_lbl = Label::builder().label(&format!("Cerca sul Web: {}", query)).halign(Align::Start).css_classes(["spotlight-item-title"]).build();
+            vbox.append(&name_lbl);
+            let desc_lbl = Label::builder().label("Cerca con il browser predefinito").halign(Align::Start).css_classes(["spotlight-item-desc"]).build();
+            vbox.append(&desc_lbl);
+            hbox.append(&vbox);
+            row.set_child(Some(&hbox));
+            let pop_clone = pop.clone();
+            let query_encoded = query.replace(" ", "+");
+            let search_url = format!("https://duckduckgo.com/?q={}", query_encoded);
+            row.connect_clicked(move |_| {
+                let _ = std::process::Command::new("xdg-open").arg(&search_url).spawn();
+                pop_clone.close();
+            });
+            list_box.append(&row);
+        }
+        return;
+    }
+
     if is_spotlight && filter_lower.starts_with('/') {
         let query = filter_text.trim_start_matches('/').trim();
         if !query.is_empty() {
@@ -269,6 +295,64 @@ pub fn populate_launcher_list(list_box: &GtkBox, filter_text: &str, category_fil
 pub fn show_spotlight_modal(app: &Application) {
     ensure_index_loaded();
 
+    // Inietta lo stile Premium Seelen UI (Glassmorphism e Typography)
+    let provider = gtk4::CssProvider::new();
+    provider.load_from_string(
+        "
+        window.spotlight-window {
+            background-color: transparent;
+        }
+        .spotlight-card {
+            background-color: rgba(20, 20, 20, 0.55);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+            padding: 12px;
+        }
+        .spotlight-input {
+            font-size: 26px;
+            font-weight: 500;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            color: white;
+            padding: 12px;
+            caret-color: white;
+        }
+        .spotlight-input:focus {
+            outline: none;
+            box-shadow: none;
+        }
+        .spotlight-item {
+            background: transparent;
+            border: none;
+            border-radius: 12px;
+            padding: 12px;
+            transition: all 0.2s ease-in-out;
+        }
+        .spotlight-item:hover, .spotlight-item:focus {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+        .spotlight-item-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+        }
+        .spotlight-item-desc {
+            font-size: 14px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        "
+    );
+    if let Some(display) = gtk4::gdk::Display::default() {
+        gtk4::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
+
     let pop = ApplicationWindow::builder()
         .application(app)
         .title("Spotlight")
@@ -317,6 +401,20 @@ pub fn show_spotlight_modal(app: &Application) {
     entry.connect_changed(move |e| {
         populate_launcher_list(&list_clone, &e.text(), "", true, &pop_clone2);
     });
+
+    // Navigazione tastiera (Freccia Giù) per saltare ai risultati
+    let key_controller = gtk4::EventControllerKey::new();
+    let list_focus_clone = list_box.clone();
+    key_controller.connect_key_pressed(move |_, keyval, _, _| {
+        if keyval == gtk4::gdk::Key::Down {
+            if let Some(first) = list_focus_clone.first_child() {
+                first.grab_focus();
+                return glib::Propagation::Stop;
+            }
+        }
+        glib::Propagation::Proceed
+    });
+    entry.add_controller(key_controller);
 
     scroll.set_child(Some(&list_box));
     card.append(&entry);

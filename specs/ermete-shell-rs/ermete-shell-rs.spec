@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           ermete-shell-rs
 Version:        1.0.0
-Release:        19%{?dist}
+Release:        20%{?dist}
 Summary:        Ermete OS Native Rust GTK4 Shell
 
 License:        MIT
@@ -27,6 +27,9 @@ install -m 0755 target/release/ermete-shell-rs %{buildroot}%{_bindir}/ermete-she
 %{_bindir}/ermete-shell-rs
 
 %changelog
+* Sun Jul 19 2026 Ermete Forge <forge@ermete.os> - 1.0.0-20
+- Added Generative UI Engine foundation, Spotlight Premium (Glassmorphism + Web Search), and native interactive Desktop Widgets (Clock, CPU/RAM).
+
 * Wed Jul 15 2026 Ermete Forge <forge@ermete.os> - 1.0.0-19
 - Implemented automatic Keyring unlock during biometric / FIDO2 login via TPM 2.0 sealed secret (`systemd-creds decrypt`) or password fallback (`greeter.rs`)
 - Implemented Inline Replies (`has_inline_reply`) with quick text field inside notification toast and center (`notifications.rs`)
