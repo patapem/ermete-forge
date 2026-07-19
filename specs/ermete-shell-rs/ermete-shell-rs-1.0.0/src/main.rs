@@ -134,7 +134,16 @@ fn main() -> glib::ExitCode {
     app.connect_activate(move |app| {
         static ACTIVATED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
         if !ACTIVATED.swap(true, std::sync::atomic::Ordering::SeqCst) {
-            ui::topbar::build_ui(app);
+            use relm4::Component;
+            let ctrl = ui::topbar_relm4::TopbarModel::builder()
+                .launch(app.clone());
+            
+            // Salviamo il controller globalmente per non far spegnere la runtime
+            thread_local! {
+                static TOPBAR_CTRL: std::cell::RefCell<Option<relm4::Connector<ui::topbar_relm4::TopbarModel>>> = std::cell::RefCell::new(None);
+            }
+            TOPBAR_CTRL.with(|c| *c.borrow_mut() = Some(ctrl));
+                
             crate::ui::osd::spawn_osd(app);
             crate::ui::desktop_widgets::build_desktop_widgets(app);
         }

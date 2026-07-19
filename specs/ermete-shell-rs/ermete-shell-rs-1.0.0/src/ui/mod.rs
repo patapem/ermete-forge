@@ -1,4 +1,5 @@
 pub mod topbar;
+pub mod topbar_relm4;
 pub mod dock;
 pub mod control_center;
 pub mod notifications;
