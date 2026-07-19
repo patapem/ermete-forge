@@ -67,6 +67,7 @@ TIER3_IMAGES=(
   "ermete-forge-updater-rs"
   "ermete-forge-xdg-desktop-portal-ermete"
   "ermete-forge-lvfs-rs"
+  "ermete-forge-ui-agent"
 )
 
 declare -A OLD_DIGESTS
