@@ -165,6 +165,7 @@ jobs:
     outputs:
       rebuilt: ${{ steps.idempotency.outputs.rebuilt }}
     runs-on: self-hosted
+    timeout-minutes: 360
     permissions:
       contents: read
       packages: write
@@ -298,6 +299,7 @@ jobs:
     outputs:
       rebuilt: ${{ steps.cache.outputs['cache-hit'] != 'true' }}
     runs-on: self-hosted
+    timeout-minutes: 180
     permissions:
       contents: read
       packages: write
@@ -357,10 +359,12 @@ jobs:
           ln -sf /usr/bin/llvm-readelf /usr/bin/readelf
           ln -sf /usr/bin/llvm-strip /usr/bin/strip
           mkdir -p /etc/pki/akmods/certs /etc/pki/akmods/private
+          echo "::add-mask::${{ secrets.MOK_PRIVATE_KEY }}"
           echo "${{ secrets.MOK_PRIVATE_KEY }}" | base64 -d > /etc/pki/akmods/private/private_key.priv
+          echo "::add-mask::${{ secrets.MOK_PUBLIC_DER }}"
           echo "${{ secrets.MOK_PUBLIC_DER }}" | base64 -d > /etc/pki/akmods/certs/public_key.der
           cp config/rpmmacros /etc/rpm/macros.98-config
-          chmod 0644 /etc/pki/akmods/private/private_key.priv
+          chmod 600 /etc/pki/akmods/private/private_key.priv
 
           # [BEDROCK UNIFICATION] The kernel is built with Clang and LLD.
           # We must instruct rpmbuild to use Clang and LLD as well, otherwise it defaults to GCC
@@ -390,7 +394,7 @@ jobs:
           chmod 777 -R /var/cache/ccache
           ccache -z
 
-          akmods --force --kernels $REAL_KERNEL_VER || true
+          akmods --force --kernels $REAL_KERNEL_VER
           cat /var/cache/akmods/nvidia/*.failed.log || true
           ccache -s
           
@@ -408,7 +412,7 @@ jobs:
             egl-wayland \
             egl-gbm \
             egl-wayland2 \
-            golang-github-nvidia-container-toolkit || true
+            golang-github-nvidia-container-toolkit
 
           # [BEDROCK CHECK] Se l'RPM non esiste o mancano i driver userspace, facciamo fallire esplicitamente lo step 
           # per evitare che GitHub Actions salvi una cache vuota o incompleta "corrotta".
@@ -857,6 +861,7 @@ jobs:
           dnf install -y createrepo_c buildah skopeo jq rpm-sign gnupg2
           
           # Setup GPG for RPM signing
+          echo "::add-mask::${{ secrets.RPM_GPG_PASSPHRASE }}"
           echo "${{ secrets.RPM_GPG_KEY }}" | gpg --import || true
           cat << 'EOF' > ~/.rpmmacros
           %_signature gpg
