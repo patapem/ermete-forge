@@ -1,0 +1,3 @@
+#!ipxe
+dhcp
+chain https://patapem.github.io/ermete-forge/recovery/menu.ipxe || shell

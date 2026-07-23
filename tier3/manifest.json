@@ -1,0 +1,19 @@
+{
+  "ermete-forge-shell-rs": "sha256:56107b17ad6aa99d5259a9f5a91ae4554e1fed7879a7e704b6ee86522cd38111",
+  "ermete-forge-settings-rs": "sha256:fa23098a8a8d4d3435c8f4addf52ffd83fd0876400f555940cffba00a771c19a",
+  "ermete-forge-daemon-rs": "sha256:9b7577fd26425c79ee355623b2c79679a043cdcc31d25e5fcd7928960987e4cf",
+  "ermete-forge-store-rs": "sha256:3f07c3d04ba8dfcc1ccd5f1f5c0c9ab6f63a127fbfd32011d76ff6f9304b1a14",
+  "ermete-forge-doctor": "sha256:e3ba1e4a93407f7737dc8d8f0dd43265853405604246cb506574fd7a7efbf34c",
+  "ermete-forge-system-services": "sha256:fe5c7cd9af94bd1011dac79c9a51e0b86c18209039fffe6ef823ac1f02458bbe",
+  "ermete-forge-desktop-ui": "sha256:cfe92213e8ef3f68639011209c41bc0b1a1053206c0aaf8b39b1522a5c6bfedb",
+  "ermete-forge-system-config": "sha256:dc2f98c641eec8073b7965b45f354e89311dc4ca643e1eb3a7b2f5302d6aef65",
+  "ermete-forge-backup": "sha256:b5e397b8d6ff530faa58bc95b1889056d0867d975d69b442b1c19dec76a8d107",
+  "ermete-forge-gatekeeper-rs": "sha256:9b7ec21b6e74f497c709b14d806ba93eb32ab9043cb212b12306ca7096ea78d4",
+  "ermete-forge-telemetry-rs": "sha256:45c64c9c15808f468ff51cacbc5d78306fe96b1619c6000e9e42c7394a401421",
+  "ermete-forge-cloud-rs": "sha256:633eda6e2b7e938e7659c53b22da48b09ba5b6437e984a3036d8bb6576e55576",
+  "ermete-forge-mdm-rs": "sha256:60cc53824dd45f5d7f773db45b0b32aa9b9871e64663c4f0e7d6e74e0ce68672",
+  "ermete-forge-updater-rs": "sha256:d9a7329ff131683b7fb98e4adf48767548d6ddaee62f94b08b9a783cf8bd4a7d",
+  "ermete-forge-xdg-desktop-portal-ermete": "sha256:321ffd4f31aa7095ce99af8be212754876f6e219e48ef89229914171f1f2008a",
+  "ermete-forge-lvfs-rs": "sha256:01372bddf59eaf2dc288d451cc22bf522022f6de8a3e88c071e7eb18a99bec0f",
+  "ermete-forge-ui-agent": "sha256:dd44f6f707b4edf24e2e70cb45b6dd104ff9efe7aedba2ba3005018e665dc0c1"
+}
